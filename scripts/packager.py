@@ -24,10 +24,7 @@ REPO_PACKAGES_DIR = REPO_DIR / "Packages"
 REPO_ROOT_DIR = REPO_DIR.parent.parent
 GPG_HOME = Path(os.environ.get("PACKAGER_GPG_HOME", "/opt/packager/gnupg"))
 GPG_KEY_NAME = os.environ.get("PACKAGER_GPG_KEY_NAME", "Huazi EL10 Repo <repo@imhzj.com>")
-GPG_PRIMARY_KEY_ID = os.environ.get(
-    "PACKAGER_GPG_PRIMARY_KEY_ID",
-    "6FD5AADC6FAD40C229A4E4B0E3A41A4F89311F85!",
-)
+GPG_PRIMARY_KEY_ID = os.environ.get("PACKAGER_GPG_PRIMARY_KEY_ID")
 GPG_PUBLIC_KEY_PATH = Path(
     os.environ.get("PACKAGER_GPG_PUBLIC_KEY_PATH", str(REPO_ROOT_DIR / "RPM-GPG-KEY-huazi-el10"))
 )
@@ -240,9 +237,31 @@ def gpg_run(args, **kwargs):
     return run(["gpg", "--homedir", str(GPG_HOME), "--batch", "--yes", *args], **kwargs)
 
 
+def secret_key_fingerprints():
+    keys = gpg_run(["--list-secret-keys", "--with-colons", "--fingerprint", GPG_KEY_NAME], check=False, capture_output=True)
+    fingerprints = []
+    want_fingerprint = False
+    for line in keys.stdout.splitlines():
+        if line.startswith("sec:"):
+            want_fingerprint = True
+            continue
+        if want_fingerprint and line.startswith("fpr:"):
+            fingerprints.append(line.split(":")[9])
+            want_fingerprint = False
+    return fingerprints
+
+
+def signing_key_id():
+    if GPG_PRIMARY_KEY_ID:
+        return GPG_PRIMARY_KEY_ID
+    fingerprints = secret_key_fingerprints()
+    if not fingerprints:
+        raise RuntimeError(f"no secret key fingerprint found for {GPG_KEY_NAME}")
+    return f"{fingerprints[0]}!"
+
+
 def ensure_signing_key():
-    keys = gpg_run(["--list-secret-keys", "--with-colons", GPG_KEY_NAME], check=False, capture_output=True)
-    if keys.returncode != 0 or "sec:" not in keys.stdout:
+    if not secret_key_fingerprints():
         batch = f"""%no-protection
 Key-Type: RSA
 Key-Length: 4096
@@ -255,9 +274,10 @@ Expire-Date: 0
 """
         gpg_run(["--generate-key"], input=batch)
 
+    key_id = signing_key_id().rstrip("!")
     GPG_PUBLIC_KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
     with GPG_PUBLIC_KEY_PATH.open("w") as f:
-        gpg_run(["--armor", "--export", GPG_KEY_NAME], stdout=f)
+        gpg_run(["--armor", "--export", key_id], stdout=f)
 
 
 def sign_rpm(rpm_path):
@@ -266,7 +286,7 @@ def sign_rpm(rpm_path):
             "rpmsign",
             "--resign",
             "--define",
-            f"_gpg_name {GPG_KEY_NAME}",
+            f"_gpg_name {signing_key_id().rstrip('!')}",
             "--define",
             f"_gpg_path {GPG_HOME}",
             "--define",
@@ -285,7 +305,7 @@ def sign_repo_metadata():
         [
             "--armor",
             "--local-user",
-            GPG_PRIMARY_KEY_ID,
+            signing_key_id(),
             "--detach-sign",
             "--output",
             str(asc_path),
