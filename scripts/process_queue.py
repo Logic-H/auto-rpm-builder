@@ -46,16 +46,23 @@ def request_json(url: str):
 
 
 def download_file(url: str, dest: Path):
-    req = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {GITHUB_TOKEN}",
-            "User-Agent": "auto-rpm-builder/0.1",
-        },
+    subprocess.run(
+        [
+            "curl",
+            "-fsSL",
+            "-H",
+            f"Authorization: Bearer {GITHUB_TOKEN}",
+            "-H",
+            "Accept: application/vnd.github+json",
+            "-A",
+            "auto-rpm-builder/0.1",
+            "-o",
+            str(dest),
+            url,
+        ],
+        check=True,
+        text=True,
     )
-    with urllib.request.urlopen(req) as resp, dest.open("wb") as f:
-        shutil.copyfileobj(resp, f)
 
 
 def find_artifact_id(repository: str, run_id: str, artifact_name: str):
