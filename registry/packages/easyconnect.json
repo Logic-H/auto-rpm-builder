@@ -31,7 +31,7 @@
       "EasyMonitor.service"
     ],
     "commands": [
-      "test -x /usr/share/sangfor/EasyConnect/EasyConnect"
+      "test -e /usr/share/sangfor/EasyConnect/EasyConnect"
     ],
     "post_install_commands": [
       "rpm -q easyconnect >/dev/null"
