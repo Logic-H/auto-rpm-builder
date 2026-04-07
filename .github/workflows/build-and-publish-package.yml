@@ -1,6 +1,14 @@
 name: Build And Publish Package
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/build-and-publish-package.yml'
+      - 'registry/packages/**'
+      - 'packaging/**'
+      - 'scripts/**'
   schedule:
     - cron: "17 * * * *"
   workflow_dispatch:
@@ -18,7 +26,7 @@ on:
           - ghostty
 
 concurrency:
-  group: build-${{ github.event.inputs.package }}
+  group: build-${{ github.event_name }}-${{ github.event.inputs.package || github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -53,20 +61,80 @@ jobs:
 
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Detect packages to build
         id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PACKAGE: ${{ github.event.inputs.package }}
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
         run: |
-          chmod +x scripts/packager.py scripts/publish_remote.sh scripts/check_updates.py scripts/remote_smoke_publish.sh scripts/export_smoke_test.py scripts/validate_registry.py
+          chmod +x scripts/packager.py scripts/publish_remote.sh scripts/check_updates.py scripts/remote_smoke_publish.sh scripts/export_smoke_test.py scripts/validate_registry.py scripts/detect_changed_packages.py
           python3 scripts/validate_registry.py
-          if [[ -n "${{ github.event.inputs.package }}" ]]; then
-            python3 scripts/check_updates.py "${{ github.event.inputs.package }}" > /tmp/update-check.json
-            echo 'changed_names=["${{ github.event.inputs.package }}"]' >> "$GITHUB_OUTPUT"
-            echo 'has_updates=true' >> "$GITHUB_OUTPUT"
-          else
-            python3 scripts/check_updates.py > /tmp/update-check.json
-          fi
+          python3 scripts/check_updates.py > /tmp/update-check.json
           cat /tmp/update-check.json
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$INPUT_PACKAGE" ]]; then
+            python3 - "$INPUT_PACKAGE" <<'PY' >/tmp/final-detect.json
+import json
+import sys
+
+package = sys.argv[1]
+payload = {
+    "reason": "manual",
+    "changed_names": [package],
+    "has_updates": True,
+}
+print(json.dumps(payload, indent=2))
+PY
+          elif [[ "$EVENT_NAME" == "push" && -n "$BEFORE_SHA" && "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            python3 scripts/detect_changed_packages.py "$BEFORE_SHA" "$CURRENT_SHA" > /tmp/git-detect.json
+            cat /tmp/git-detect.json
+            python3 - <<'PY' >/tmp/final-detect.json
+import json
+from pathlib import Path
+
+update_data = json.loads(Path("/tmp/update-check.json").read_text())
+git_data = json.loads(Path("/tmp/git-detect.json").read_text())
+names = sorted(set(update_data.get("changed_names", [])) | set(git_data.get("changed_names", [])))
+payload = {
+    "reason": "push",
+    "changed_names": names,
+    "has_updates": bool(names),
+    "upstream_changed_names": update_data.get("changed_names", []),
+    "git_changed_names": git_data.get("changed_names", []),
+}
+print(json.dumps(payload, indent=2))
+PY
+          else
+            python3 - <<'PY' >/tmp/final-detect.json
+import json
+from pathlib import Path
+
+update_data = json.loads(Path("/tmp/update-check.json").read_text())
+payload = {
+    "reason": "scheduled",
+    "changed_names": update_data.get("changed_names", []),
+    "has_updates": update_data.get("has_updates", False),
+}
+print(json.dumps(payload, indent=2))
+PY
+          fi
+
+          cat /tmp/final-detect.json
+          python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+payload = json.loads(Path("/tmp/final-detect.json").read_text())
+with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+    f.write(f"has_updates={'true' if payload['has_updates'] else 'false'}\n")
+    f.write(f"changed_names={json.dumps(payload['changed_names'])}\n")
+PY
 
       - name: Configure SSH
         if: ${{ steps.detect.outputs.has_updates == 'true' }}
@@ -148,4 +216,4 @@ jobs:
 
       - name: No updates
         if: ${{ steps.detect.outputs.has_updates != 'true' }}
-        run: echo "No upstream updates detected."
+        run: echo "No affected packages detected."

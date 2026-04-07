@@ -51,11 +51,14 @@ Workflow file:
 It can run in two modes:
 
 - scheduled automatic polling every hour
+- push-triggered incremental builds on `main`
 - manual dispatch for one selected package
 
 Automatic flow:
 
 - detect upstream version changes for all enabled packages
+- detect package definitions and packaging changes from Git on push
+- merge both change sets and keep only affected packages
 - build changed packages in dependency order
 - upload RPMs to a temporary directory on the repo host
 - smoke-test each package inside a temporary `podman` EL10 container on the repo host
