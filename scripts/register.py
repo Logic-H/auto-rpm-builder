@@ -70,6 +70,12 @@ def cmd_github_release(args):
     if mode == "rpm-from-archive":
         data["build"]["files"] = []
 
+    data["test"] = {
+        "install": [name],
+        "files": [],
+        "commands": [],
+    }
+
     write_package(name, data)
 
 
@@ -87,6 +93,9 @@ def main():
     p.add_argument("--license", default="Unknown")
     p.add_argument("--enable", action="store_true")
     p.set_defaults(func=cmd_github_release)
+
+    p_template = sub.add_parser("template", help="Print the package definition template path")
+    p_template.set_defaults(func=lambda _args: print(ROOT / "registry" / "package-template.json"))
 
     args = parser.parse_args()
     args.func(args)

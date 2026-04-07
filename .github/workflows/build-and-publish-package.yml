@@ -56,7 +56,8 @@ jobs:
       - name: Detect packages to build
         id: detect
         run: |
-          chmod +x scripts/packager.py scripts/publish_remote.sh scripts/check_updates.py scripts/remote_smoke_publish.sh scripts/export_smoke_test.py
+          chmod +x scripts/packager.py scripts/publish_remote.sh scripts/check_updates.py scripts/remote_smoke_publish.sh scripts/export_smoke_test.py scripts/validate_registry.py
+          python3 scripts/validate_registry.py
           if [[ -n "${{ github.event.inputs.package }}" ]]; then
             python3 scripts/check_updates.py "${{ github.event.inputs.package }}" > /tmp/update-check.json
             echo 'changed_names=["${{ github.event.inputs.package }}"]' >> "$GITHUB_OUTPUT"

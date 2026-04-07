@@ -23,6 +23,8 @@ them into the repository served from `repo.imhzj.com`.
 ./scripts/packager.py sync-one daed --force
 ./scripts/packager.py import-rpms work/builds/daed/*/*.rpm
 ./scripts/publish_remote.sh daed
+./scripts/validate_registry.py
+./scripts/register.py template
 ```
 
 Command summary:
@@ -36,6 +38,8 @@ Command summary:
   - imports prebuilt RPMs into the current repo directory
   - removes old repo RPMs with the same RPM package names
   - signs RPMs and refreshes repodata
+- `validate_registry.py`
+  - validates all package definitions before the workflow starts
 
 ## GitHub Actions
 
@@ -76,3 +80,4 @@ Required GitHub repository secrets:
   the host stays clean while still validating a real `dnf install` path.
 - New packages should define a `test` section with install targets, expected files,
   and smoke-test commands so the pipeline stays fully declarative.
+- `registry/package-template.json` is the baseline template for new packages.

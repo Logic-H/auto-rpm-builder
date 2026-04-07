@@ -1,0 +1,38 @@
+{
+  "name": "example-package",
+  "enabled": true,
+  "source": {
+    "type": "github-release",
+    "repo": "owner/repo",
+    "version_mode": "strip-v",
+    "asset_patterns": [
+      "^example-package-linux-x86_64\\.zip$"
+    ]
+  },
+  "build": {
+    "method": "rpm-from-archive",
+    "release": "1",
+    "license": "LicenseRef-Unknown",
+    "summary": "Short package summary",
+    "description": "Longer package description",
+    "arch": "x86_64",
+    "files": [
+      {
+        "src": "example-package",
+        "dest": "/usr/bin/example-package",
+        "mode": "0755"
+      }
+    ]
+  },
+  "test": {
+    "install": [
+      "example-package"
+    ],
+    "files": [
+      "/usr/bin/example-package"
+    ],
+    "commands": [
+      "/usr/bin/example-package --help >/dev/null"
+    ]
+  }
+}
