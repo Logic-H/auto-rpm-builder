@@ -2,16 +2,22 @@
   "schema_version": 1,
   "name": "easyconnect",
   "enabled": true,
-  "notes": "Sangfor EasyConnect vendor RPM mirrored into the Trilby repository.",
+  "notes": "Sangfor EasyConnect vendor DEB rebuilt into an EL10 RPM for the Trilby repository.",
   "source": {
     "type": "url",
-    "url": "http://download.sangfor.com.cn/download/product/sslvpn/pkg/linux_01/EasyConnect_x64.rpm",
-    "asset_name": "EasyConnect_x64.rpm",
-    "version": "7.6.3.7.",
-    "release_tag": "7.6.3.7.-1.el6"
+    "url": "http://download.sangfor.com.cn/download/product/sslvpn/pkg/linux_01/EasyConnect_x64.deb",
+    "asset_name": "EasyConnect_x64.deb",
+    "version": "7.6.3.7",
+    "release_tag": "7.6.3.7-1"
   },
   "build": {
-    "method": "repack-rpm"
+    "method": "rpm-from-deb",
+    "release": "1",
+    "license": "commercial",
+    "summary": "EasyConnect for Linux",
+    "description": "Sangfor EasyConnect for Linux rebuilt from the vendor DEB package.",
+    "arch": "x86_64",
+    "disable_check_rpaths": true
   },
   "test": {
     "install": [

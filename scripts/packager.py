@@ -5,6 +5,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -352,7 +353,7 @@ def make_source_tarball(name, version, stage_root, out_path):
         tar.add(payload_root, arcname=payload_root.name)
 
 
-def generate_spec(pkg, version):
+def generate_spec(pkg, version, file_lines):
     build = pkg["build"]
     name = pkg["name"]
     release = build.get("release", "1")
@@ -360,15 +361,6 @@ def generate_spec(pkg, version):
     license_name = build["license"]
     description = build.get("description", summary)
     arch = build.get("arch", "x86_64")
-
-    file_lines = []
-    for rule in build["files"]:
-        mode = int(rule.get("mode", "0644"), 8)
-        owner = "root"
-        group = "root"
-        file_lines.append(
-            f"%attr({mode:04o},{owner},{group}) {rule['dest']}"
-        )
 
     preamble = ["%global debug_package %{nil}"]
     if build.get("disable_check_rpaths"):
@@ -406,6 +398,31 @@ cp -a * %{{buildroot}}/
     return spec
 
 
+def generate_spec_from_rules(pkg, version):
+    file_lines = []
+    for rule in pkg["build"]["files"]:
+        mode = int(rule.get("mode", "0644"), 8)
+        file_lines.append(f"%attr({mode:04o},root,root) {rule['dest']}")
+    return generate_spec(pkg, version, file_lines)
+
+
+def generate_spec_from_tree(pkg, version, stage_root):
+    file_lines = []
+    for root, dirs, files in os.walk(stage_root, topdown=True, followlinks=False):
+        root_path = Path(root)
+        for dirname in sorted(dirs):
+            dir_path = root_path / dirname
+            if dir_path.is_symlink():
+                rel = "/" + str(dir_path.relative_to(stage_root))
+                file_lines.append(rel)
+        for filename in sorted(files):
+            file_path = root_path / filename
+            rel = "/" + str(file_path.relative_to(stage_root))
+            mode = stat.S_IMODE(os.lstat(file_path).st_mode)
+            file_lines.append(f"%attr({mode:04o},root,root) {rel}")
+    return generate_spec(pkg, version, file_lines)
+
+
 def build_rpm_from_archive(pkg, source_info):
     build = pkg["build"]
     if build["method"] != "rpm-from-archive":
@@ -437,7 +454,7 @@ def build_rpm_from_archive(pkg, source_info):
         source_tarball = rpmbuild_root / "SOURCES" / f"{pkg['name']}-{source_info['version']}.tar.gz"
         spec_path = rpmbuild_root / "SPECS" / f"{pkg['name']}.spec"
         make_source_tarball(pkg["name"], source_info["version"], stage_root, source_tarball)
-        spec_path.write_text(generate_spec(pkg, source_info["version"]))
+        spec_path.write_text(generate_spec_from_rules(pkg, source_info["version"]))
 
         run(
             [
@@ -464,6 +481,71 @@ def repack_rpm(pkg, source_info):
     if asset_path.suffix != ".rpm":
         raise RuntimeError(f"expected RPM asset, got: {asset_path.name}")
     return [asset_path]
+
+
+def extract_tarball(archive_path, dest_dir):
+    name = archive_path.name
+    if name.endswith(".tar.gz") or name.endswith(".tgz"):
+        run(["tar", "-xzf", str(archive_path), "-C", str(dest_dir)])
+    elif name.endswith(".tar.xz"):
+        run(["tar", "-xJf", str(archive_path), "-C", str(dest_dir)])
+    elif name.endswith(".tar.zst"):
+        run(["tar", "--zstd", "-xf", str(archive_path), "-C", str(dest_dir)])
+    else:
+        raise RuntimeError(f"unsupported tar archive type: {name}")
+
+
+def deb_data_member(asset_path):
+    members = run(["ar", "t", str(asset_path)], capture_output=True).stdout.splitlines()
+    for member in members:
+        if member.startswith("data.tar."):
+            return member
+    raise RuntimeError(f"no data.tar.* member found in {asset_path.name}")
+
+
+def build_rpm_from_deb(pkg, source_info):
+    asset_path = source_info["asset_path"]
+    if asset_path.suffix != ".deb":
+        raise RuntimeError(f"expected DEB asset, got: {asset_path.name}")
+
+    with tempfile.TemporaryDirectory(prefix=f"packager-deb-{pkg['name']}-") as tempdir:
+        temp = Path(tempdir)
+        stage_root = temp / "stage"
+        stage_root.mkdir()
+
+        data_member = deb_data_member(asset_path)
+        archive_path = temp / data_member
+        with archive_path.open("wb") as f:
+            run(["ar", "p", str(asset_path), data_member], stdout=f)
+        extract_tarball(archive_path, stage_root)
+
+        rpmbuild_root = temp / "rpmbuild"
+        for subdir in ("BUILD", "BUILDROOT", "RPMS", "SOURCES", "SPECS", "SRPMS"):
+            (rpmbuild_root / subdir).mkdir(parents=True, exist_ok=True)
+
+        source_tarball = rpmbuild_root / "SOURCES" / f"{pkg['name']}-{source_info['version']}.tar.gz"
+        spec_path = rpmbuild_root / "SPECS" / f"{pkg['name']}.spec"
+        make_source_tarball(pkg["name"], source_info["version"], stage_root, source_tarball)
+        spec_path.write_text(generate_spec_from_tree(pkg, source_info["version"], stage_root))
+
+        run(
+            [
+                "rpmbuild",
+                "-bb",
+                "--define",
+                f"_topdir {rpmbuild_root}",
+                str(spec_path),
+            ]
+        )
+
+        rpm_dir = rpmbuild_root / "RPMS" / pkg["build"].get("arch", "x86_64")
+        rpms = sorted(rpm_dir.glob("*.rpm"))
+        if not rpms:
+            raise RuntimeError(f"no RPM produced in {rpm_dir}")
+        persistent_rpm = WORK_DIR / "builds" / pkg["name"] / source_info["version"] / rpms[-1].name
+        persistent_rpm.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(rpms[-1], persistent_rpm)
+        return [persistent_rpm]
 
 
 def install_local_repo_build_dependencies(rpms):
@@ -664,6 +746,8 @@ def build_package(pkg, force=False, synced=None):
     method = pkg["build"]["method"]
     if method == "rpm-from-archive":
         built_rpms = build_rpm_from_archive(pkg, source_info)
+    elif method == "rpm-from-deb":
+        built_rpms = build_rpm_from_deb(pkg, source_info)
     elif method == "repack-rpm":
         built_rpms = repack_rpm(pkg, source_info)
     elif method == "rpmbuild-spec":
