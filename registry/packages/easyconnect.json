@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "name": "easyconnect",
+  "enabled": true,
+  "notes": "Sangfor EasyConnect vendor RPM mirrored into the Trilby repository.",
+  "source": {
+    "type": "url",
+    "url": "http://download.sangfor.com.cn/download/product/sslvpn/pkg/linux_01/EasyConnect_x64.rpm",
+    "asset_name": "EasyConnect_x64.rpm",
+    "version": "7.6.3.7.",
+    "release_tag": "7.6.3.7.-1.el6"
+  },
+  "build": {
+    "method": "repack-rpm"
+  },
+  "test": {
+    "install": [
+      "easyconnect"
+    ],
+    "dnf_args": [
+      "--setopt=tsflags=noscripts"
+    ],
+    "env": {},
+    "pre_install_commands": [],
+    "files": [
+      "/usr/share/sangfor/EasyConnect/EasyConnect",
+      "/usr/share/applications/EasyConnect.desktop",
+      "/usr/lib/systemd/system/EasyMonitor.service"
+    ],
+    "unit_files": [
+      "EasyMonitor.service"
+    ],
+    "commands": [
+      "test -x /usr/share/sangfor/EasyConnect/EasyConnect"
+    ],
+    "post_install_commands": [
+      "rpm -q easyconnect >/dev/null"
+    ]
+  }
+}

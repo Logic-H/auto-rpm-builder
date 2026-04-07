@@ -46,6 +46,7 @@ def require_string_map(value, path, label):
 def validate_test_section(data, path):
     test = require(data, "test", dict, path)
     install = require(test, "install", list, path)
+    dnf_args = test.get("dnf_args", [])
     env = test.get("env", {})
     pre_install_commands = test.get("pre_install_commands", [])
     files = require(test, "files", list, path)
@@ -54,6 +55,7 @@ def validate_test_section(data, path):
     post_install_commands = test.get("post_install_commands", [])
 
     require_string_list(install, path, "test.install", allow_empty=False)
+    require_string_list(dnf_args, path, "test.dnf_args")
     require_string_map(env, path, "test.env")
     require_string_list(pre_install_commands, path, "test.pre_install_commands")
     require_string_list(files, path, "test.files")
@@ -82,7 +84,11 @@ def validate_package(path):
     require(data, "enabled", bool, path)
 
     source = require(data, "source", dict, path)
-    require_nonempty_string(require(source, "type", str, path), path, "source.type")
+    source_type = require(source, "type", str, path)
+    require_nonempty_string(source_type, path, "source.type")
+    if source_type == "url":
+        require_nonempty_string(require(source, "url", str, path), path, "source.url")
+        require_nonempty_string(require(source, "version", str, path), path, "source.version")
 
     build = require(data, "build", dict, path)
     require_nonempty_string(require(build, "method", str, path), path, "build.method")

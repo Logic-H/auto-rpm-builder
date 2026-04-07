@@ -60,6 +60,7 @@ with config_path.open() as f:
 install = data.get("install", [])
 if not install:
     raise SystemExit("smoke test install targets are empty")
+dnf_args = data.get("dnf_args") or []
 
 lines = [
     "#!/bin/bash",
@@ -73,6 +74,7 @@ lines.append("dnf -y makecache --disablerepo='*' --enablerepo=local-smoke,trilby
 lines.extend(data.get("pre_install_commands") or [])
 lines.append(
     "dnf -y install --disablerepo='*' --enablerepo=local-smoke,trilby-live "
+    + (" ".join(shlex.quote(item) for item in dnf_args) + " " if dnf_args else "")
     + " ".join(shlex.quote(item) for item in install)
 )
 

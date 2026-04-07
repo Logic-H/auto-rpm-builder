@@ -33,6 +33,7 @@ def main():
         "schema_version": pkg.get("schema_version", 1),
         "package": package,
         "install": install,
+        "dnf_args": test.get("dnf_args") or [],
         "env": test.get("env") or {},
         "pre_install_commands": test.get("pre_install_commands") or [],
         "files": files,

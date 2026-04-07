@@ -13,6 +13,7 @@ them into the repository served from `repo.imhzj.com`.
 
 - `github-release` + `rpm-from-archive`
 - `github-release` + `repack-rpm`
+- `url` + `repack-rpm`
 - `git` + `rpmbuild-spec`
 
 ## Local commands
@@ -82,5 +83,5 @@ Required GitHub repository secrets:
   and smoke-test commands so the pipeline stays fully declarative.
 - `registry/package-template.json` is the baseline template for new packages.
 - `schema_version: 1` is now required in every package definition.
-- `test` also supports `env`, `pre_install_commands`, `unit_files`, and
-  `post_install_commands` for more complex packages without changing the runner.
+- `test` also supports `dnf_args`, `env`, `pre_install_commands`, `unit_files`,
+  and `post_install_commands` for more complex packages without changing the runner.

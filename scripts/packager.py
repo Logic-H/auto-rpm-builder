@@ -170,6 +170,31 @@ def fetch_latest_source(pkg):
             "asset_path": asset_path,
         }
 
+    if source["type"] == "url":
+        url = source["url"]
+        asset_name = source.get("asset_name") or Path(url.split("?", 1)[0]).name
+        if not asset_name:
+            raise RuntimeError(f"could not determine asset name from url: {url}")
+        version = source.get("version")
+        if not version:
+            raise RuntimeError(f"url source requires version for {pkg['name']}")
+        build_id = source.get("build_id", f"{version}|{url}")
+
+        source_dir = WORK_DIR / "sources" / pkg["name"] / version
+        source_dir.mkdir(parents=True, exist_ok=True)
+        asset_path = source_dir / asset_name
+        if not asset_path.exists():
+            download_file(url, asset_path)
+
+        return {
+            "version": version,
+            "build_id": build_id,
+            "release_tag": source.get("release_tag", version),
+            "asset_name": asset_name,
+            "asset_url": url,
+            "asset_path": asset_path,
+        }
+
     if source["type"] == "git":
         repo_url = source["repo"]
         checkout_dir = WORK_DIR / "sources" / pkg["name"] / "git-checkout"
