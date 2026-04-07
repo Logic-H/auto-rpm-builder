@@ -6,16 +6,42 @@
     "repo": "daeuniverse/dae",
     "version_mode": "strip-v",
     "asset_patterns": [
-      "dae.*x86_64.*\\.rpm$",
-      ".*x86_64.*\\.rpm$"
+      "^dae-linux-x86_64\\.zip$"
     ]
   },
   "build": {
-    "method": "repack-rpm",
+    "method": "rpm-from-archive",
     "release": "1",
     "license": "AGPL-3.0-only",
     "summary": "dae high-performance transparent proxy",
     "description": "dae high-performance transparent proxy",
-    "arch": "x86_64"
+    "arch": "x86_64",
+    "files": [
+      {
+        "src": "dae-linux-x86_64",
+        "dest": "/usr/bin/dae",
+        "mode": "0755"
+      },
+      {
+        "src": "dae.service",
+        "dest": "/usr/lib/systemd/system/dae.service",
+        "mode": "0644"
+      },
+      {
+        "src": "example.dae",
+        "dest": "/etc/dae/example.dae",
+        "mode": "0644"
+      },
+      {
+        "src": "geoip.dat",
+        "dest": "/usr/share/dae/geoip.dat",
+        "mode": "0644"
+      },
+      {
+        "src": "geosite.dat",
+        "dest": "/usr/share/dae/geosite.dat",
+        "mode": "0644"
+      }
+    ]
   }
 }
