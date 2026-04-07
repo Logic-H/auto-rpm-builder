@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "name": "ghostty",
   "enabled": true,
   "notes": "Rebuilt for EL10 from official ghostty source using the upstream COPR packaging spec.",
@@ -30,12 +31,18 @@
     "install": [
       "ghostty"
     ],
+    "env": {},
+    "pre_install_commands": [],
     "files": [
       "/usr/bin/ghostty",
       "/usr/share/applications/com.mitchellh.ghostty.desktop"
     ],
+    "unit_files": [],
     "commands": [
       "grep -q '^Exec=/usr/bin/ghostty' /usr/share/applications/com.mitchellh.ghostty.desktop"
+    ],
+    "post_install_commands": [
+      "rpm -q ghostty >/dev/null"
     ]
   }
 }

@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "name": "dae",
   "enabled": true,
   "source": {
@@ -48,12 +49,20 @@
     "install": [
       "dae"
     ],
+    "env": {},
+    "pre_install_commands": [],
     "files": [
       "/usr/bin/dae",
       "/usr/lib/systemd/system/dae.service"
     ],
+    "unit_files": [
+      "dae.service"
+    ],
     "commands": [
       "/usr/bin/dae --help >/dev/null"
+    ],
+    "post_install_commands": [
+      "rpm -q dae >/dev/null"
     ]
   }
 }

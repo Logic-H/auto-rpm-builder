@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "name": "example-package",
   "enabled": true,
   "source": {
@@ -28,11 +29,17 @@
     "install": [
       "example-package"
     ],
+    "env": {},
+    "pre_install_commands": [],
     "files": [
       "/usr/bin/example-package"
     ],
+    "unit_files": [],
     "commands": [
       "/usr/bin/example-package --help >/dev/null"
+    ],
+    "post_install_commands": [
+      "rpm -q example-package >/dev/null"
     ]
   }
 }

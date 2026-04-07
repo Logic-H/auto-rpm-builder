@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "name": "daed",
   "enabled": true,
   "source": {
@@ -93,13 +94,21 @@
     "install": [
       "daed"
     ],
+    "env": {},
+    "pre_install_commands": [],
     "files": [
       "/usr/bin/daed",
       "/usr/lib/systemd/system/daed.service",
       "/usr/share/applications/daed.desktop"
     ],
+    "unit_files": [
+      "daed.service"
+    ],
     "commands": [
       "/usr/bin/daed --help >/dev/null"
+    ],
+    "post_install_commands": [
+      "rpm -q daed >/dev/null"
     ]
   }
 }

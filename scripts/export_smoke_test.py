@@ -30,10 +30,15 @@ def main():
     files = test.get("files") or []
 
     payload = {
+        "schema_version": pkg.get("schema_version", 1),
         "package": package,
         "install": install,
+        "env": test.get("env") or {},
+        "pre_install_commands": test.get("pre_install_commands") or [],
         "files": files,
+        "unit_files": test.get("unit_files") or [],
         "commands": commands,
+        "post_install_commands": test.get("post_install_commands") or [],
     }
     out_path.write_text(json.dumps(payload, indent=2) + "\n")
 

@@ -49,6 +49,7 @@ def cmd_github_release(args):
         asset_patterns = args.asset_pattern or default_asset_patterns(name, "zip")
 
     data = {
+        "schema_version": 1,
         "name": name,
         "enabled": args.enable,
         "source": {
@@ -72,8 +73,12 @@ def cmd_github_release(args):
 
     data["test"] = {
         "install": [name],
+        "env": {},
+        "pre_install_commands": [],
         "files": [],
+        "unit_files": [],
         "commands": [],
+        "post_install_commands": [],
     }
 
     write_package(name, data)

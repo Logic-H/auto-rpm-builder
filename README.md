@@ -81,3 +81,6 @@ Required GitHub repository secrets:
 - New packages should define a `test` section with install targets, expected files,
   and smoke-test commands so the pipeline stays fully declarative.
 - `registry/package-template.json` is the baseline template for new packages.
+- `schema_version: 1` is now required in every package definition.
+- `test` also supports `env`, `pre_install_commands`, `unit_files`, and
+  `post_install_commands` for more complex packages without changing the runner.

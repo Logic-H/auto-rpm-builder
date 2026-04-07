@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "name": "gtk4-layer-shell",
   "enabled": true,
   "notes": "Rebuilt for EL10 from the upstream COPR packaging repository.",
@@ -20,10 +21,16 @@
       "gtk4-layer-shell",
       "gtk4-layer-shell-devel"
     ],
+    "env": {},
+    "pre_install_commands": [],
     "files": [
       "/usr/lib64/libgtk4-layer-shell.so.0",
       "/usr/lib64/pkgconfig/gtk4-layer-shell-0.pc"
     ],
-    "commands": []
+    "unit_files": [],
+    "commands": [],
+    "post_install_commands": [
+      "rpm -q gtk4-layer-shell gtk4-layer-shell-devel >/dev/null"
+    ]
   }
 }
