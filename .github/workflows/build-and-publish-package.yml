@@ -57,6 +57,29 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Configure SSH
+        env:
+          PACKAGER_REMOTE_SSH_KEY: ${{ secrets.PACKAGER_REMOTE_SSH_KEY }}
+          PACKAGER_REMOTE_HOST: ${{ secrets.PACKAGER_REMOTE_HOST }}
+        run: |
+          test -n "$PACKAGER_REMOTE_SSH_KEY"
+          test -n "$PACKAGER_REMOTE_HOST"
+          mkdir -p /root/.ssh
+          chmod 700 /root/.ssh
+          printf '%s\n' "$PACKAGER_REMOTE_SSH_KEY" > /root/.ssh/packager_remote
+          chmod 600 /root/.ssh/packager_remote
+          ssh-keyscan -H "$PACKAGER_REMOTE_HOST" >> /root/.ssh/known_hosts
+
+      - name: Sync remote package state
+        env:
+          PACKAGER_REMOTE_HOST: ${{ secrets.PACKAGER_REMOTE_HOST }}
+          PACKAGER_REMOTE_USER: ${{ secrets.PACKAGER_REMOTE_USER }}
+        run: |
+          mkdir -p state
+          rsync -av -e "ssh -i /root/.ssh/packager_remote -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
+            "${PACKAGER_REMOTE_USER:-cloud-user}@${PACKAGER_REMOTE_HOST}:/opt/packager/state/" \
+            state/ || true
+
       - name: Detect packages to build
         id: detect
         env:
@@ -82,20 +105,6 @@ jobs:
 
           cat /tmp/final-detect.json
           python3 -c 'import json, os, pathlib; payload=json.loads(pathlib.Path("/tmp/final-detect.json").read_text()); open(os.environ["GITHUB_OUTPUT"], "a").write(f"has_updates={'\''true'\'' if payload['\''has_updates'\''] else '\''false'\''}\nchanged_names={json.dumps(payload['\''changed_names'\''])}\n")'
-
-      - name: Configure SSH
-        if: ${{ steps.detect.outputs.has_updates == 'true' }}
-        env:
-          PACKAGER_REMOTE_SSH_KEY: ${{ secrets.PACKAGER_REMOTE_SSH_KEY }}
-          PACKAGER_REMOTE_HOST: ${{ secrets.PACKAGER_REMOTE_HOST }}
-        run: |
-          test -n "$PACKAGER_REMOTE_SSH_KEY"
-          test -n "$PACKAGER_REMOTE_HOST"
-          mkdir -p /root/.ssh
-          chmod 700 /root/.ssh
-          printf '%s\n' "$PACKAGER_REMOTE_SSH_KEY" > /root/.ssh/packager_remote
-          chmod 600 /root/.ssh/packager_remote
-          ssh-keyscan -H "$PACKAGER_REMOTE_HOST" >> /root/.ssh/known_hosts
 
       - name: Install ghostty toolchain
         if: ${{ steps.detect.outputs.has_updates == 'true' }}

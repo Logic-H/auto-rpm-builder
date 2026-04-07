@@ -44,7 +44,7 @@ def main():
     head_ref = sys.argv[2]
     changed_files = [
         line.strip()
-        for line in run(["git", "diff", "--name-only", f"{base_ref}...{head_ref}"]).splitlines()
+        for line in run(["git", "diff", "--name-only", base_ref, head_ref]).splitlines()
         if line.strip()
     ]
 
