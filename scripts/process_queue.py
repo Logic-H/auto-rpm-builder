@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+import traceback
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -84,6 +85,7 @@ def extract_artifact(repository: str, run_id: str, artifact_name: str, dest_dir:
 
 
 def run(cmd):
+    print(f"running: {' '.join(str(part) for part in cmd)}")
     subprocess.run(cmd, check=True, text=True)
 
 
@@ -125,9 +127,25 @@ def sync_public_state():
         shutil.copy2(path, PUBLIC_STATE_DIR / path.name)
 
 
+def save_failure_details(request_path: Path, payload, exc: Exception):
+    details = {
+        "failed_at": int(time.time()),
+        "request_path": str(request_path),
+        "error_type": type(exc).__name__,
+        "error": str(exc),
+        "traceback": traceback.format_exc(),
+        "payload": payload,
+    }
+    save_json(request_path.with_suffix(".error.json"), details)
+
+
 def process_request(request_path: Path):
     payload = load_json(request_path)
     packages = payload["packages"]
+    print(
+        f"processing request {request_path.name}: "
+        f"run_id={payload['run_id']} artifact={payload['artifact_name']} packages={','.join(packages)}"
+    )
     with tempfile.TemporaryDirectory(prefix="packager-artifact-") as tempdir:
         bundle_root = extract_artifact(
             payload["repository"],
@@ -136,6 +154,7 @@ def process_request(request_path: Path):
             Path(tempdir),
         )
         for package in packages:
+            print(f"processing package {package}")
             stage_dir = find_stage_dir(bundle_root, package)
             state_data = load_json(stage_dir / "state.json")
             run([str(REMOTE_SCRIPT), package, str(stage_dir)])
@@ -145,7 +164,9 @@ def process_request(request_path: Path):
             existing["last_published_rpms"] = collect_published_paths(stage_dir)
             existing["last_published_at"] = int(time.time())
             save_json(state_path, existing)
+            print(f"published package {package}: {', '.join(existing['last_published_rpms'])}")
     sync_public_state()
+    print(f"request {request_path.name} completed")
 
 
 def process_all():
@@ -160,11 +181,13 @@ def process_all():
         for request_path in sorted(PENDING_DIR.glob("*.json")):
             processing_path = PROCESSING_DIR / request_path.name
             request_path.replace(processing_path)
+            payload = load_json(processing_path)
             try:
                 process_request(processing_path)
-            except Exception:
+            except Exception as exc:
                 failed_path = FAILED_DIR / processing_path.name
                 processing_path.replace(failed_path)
+                save_failure_details(failed_path, payload, exc)
                 raise
             else:
                 done_path = DONE_DIR / processing_path.name

@@ -28,6 +28,23 @@ them into the repository served from `repo.imhzj.com`.
 ./scripts/register.py template
 ```
 
+## Add a package
+
+Shortest path for a new package:
+
+1. Copy [`registry/package-template.json`](/home/huazi/auto-rpm-builder/registry/package-template.json) to `registry/packages/<name>.json`.
+2. Fill in `source`, `build`, and `test`.
+3. Run `./scripts/validate_registry.py`.
+4. If needed, test locally with `./scripts/packager.py build-one <name> --force`.
+5. Commit to `main` or run the workflow manually for that package.
+
+Practical rules:
+
+- Keep the `test` section declarative and minimal.
+- Prefer `test -e` over `test -x` unless the file is actually executable in the RPM payload.
+- If the package ships its own RPM and install scripts are hostile to containers, use `test.dnf_args`, for example `--setopt=tsflags=noscripts`.
+- If a package depends on another custom package, declare it in `requires`.
+
 Command summary:
 
 - `build-one`
