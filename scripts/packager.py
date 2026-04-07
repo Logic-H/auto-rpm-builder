@@ -24,6 +24,10 @@ REPO_PACKAGES_DIR = REPO_DIR / "Packages"
 REPO_ROOT_DIR = REPO_DIR.parent.parent
 GPG_HOME = Path(os.environ.get("PACKAGER_GPG_HOME", "/opt/packager/gnupg"))
 GPG_KEY_NAME = os.environ.get("PACKAGER_GPG_KEY_NAME", "Huazi EL10 Repo <repo@imhzj.com>")
+GPG_PRIMARY_KEY_ID = os.environ.get(
+    "PACKAGER_GPG_PRIMARY_KEY_ID",
+    "6FD5AADC6FAD40C229A4E4B0E3A41A4F89311F85!",
+)
 GPG_PUBLIC_KEY_PATH = Path(
     os.environ.get("PACKAGER_GPG_PUBLIC_KEY_PATH", str(REPO_ROOT_DIR / "RPM-GPG-KEY-huazi-el10"))
 )
@@ -256,7 +260,7 @@ def sign_repo_metadata():
         [
             "--armor",
             "--local-user",
-            GPG_KEY_NAME,
+            GPG_PRIMARY_KEY_ID,
             "--detach-sign",
             "--output",
             str(asc_path),
