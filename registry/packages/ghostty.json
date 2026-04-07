@@ -13,6 +13,7 @@
   "build": {
     "method": "rpmbuild-spec",
     "spec_path": "ghostty/ghostty.spec",
+    "spec_override": "packaging/ghostty/ghostty.el10.spec",
     "install_from_repo": [
       "gtk4-layer-shell"
     ],

@@ -49,9 +49,31 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build package
+        if: ${{ github.event.inputs.package != 'ghostty' }}
         run: |
           chmod +x scripts/packager.py scripts/publish_remote.sh
           ./scripts/packager.py build-one "${{ github.event.inputs.package }}" --force
+
+      - name: Install ghostty toolchain
+        if: ${{ github.event.inputs.package == 'ghostty' }}
+        run: |
+          dnf -y install curl xz tar gzip ninja-build python3-pip
+          curl -fsSL https://ziglang.org/download/0.15.2/zig-x86_64-linux-0.15.2.tar.xz -o /tmp/zig.tar.xz
+          tar -C /opt -xf /tmp/zig.tar.xz
+          ln -sf /opt/zig-x86_64-linux-0.15.2/zig /usr/local/bin/zig
+          curl -fsSL https://github.com/jgm/pandoc/releases/download/3.8/pandoc-3.8-linux-amd64.tar.gz -o /tmp/pandoc.tar.gz
+          tar -C /tmp -xf /tmp/pandoc.tar.gz
+          install -m 0755 /tmp/pandoc-3.8/bin/pandoc /usr/local/bin/pandoc
+          git clone --depth=1 https://gitlab.gnome.org/jwestman/blueprint-compiler.git /tmp/blueprint-compiler
+          meson setup /tmp/blueprint-compiler /tmp/blueprint-compiler/.build --prefix=/usr/local
+          meson compile -C /tmp/blueprint-compiler/.build
+          meson install -C /tmp/blueprint-compiler/.build
+
+      - name: Build ghostty package
+        if: ${{ github.event.inputs.package == 'ghostty' }}
+        run: |
+          chmod +x scripts/packager.py scripts/publish_remote.sh
+          ./scripts/packager.py build-one ghostty --force
 
       - name: Collect built RPMs
         run: |

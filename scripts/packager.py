@@ -468,7 +468,14 @@ def build_rpms_from_spec(pkg, source_info):
         if not spec_src.exists():
             raise RuntimeError(f"spec file not found: {spec_src}")
 
-        spec_dest = rpmbuild_root / "SPECS" / Path(spec_relpath).name
+        spec_override = build.get("spec_override")
+        if spec_override:
+            override_path = (ROOT / spec_override).resolve()
+            if not override_path.exists():
+                raise RuntimeError(f"spec override file not found: {override_path}")
+            spec_src = override_path
+
+        spec_dest = rpmbuild_root / "SPECS" / Path(spec_src).name
         shutil.copy2(spec_src, spec_dest)
 
         for extra_spec in build.get("extra_specs", []):
