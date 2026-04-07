@@ -1,0 +1,92 @@
+{
+  "name": "daed",
+  "enabled": true,
+  "source": {
+    "type": "github-release",
+    "repo": "daeuniverse/daed",
+    "version_mode": "strip-v",
+    "asset_patterns": [
+      "^daed-linux-x86_64\\.zip$"
+    ]
+  },
+  "build": {
+    "method": "rpm-from-archive",
+    "release": "1",
+    "license": "MIT AGPL",
+    "summary": "daed, A Modern Dashboard For dae.",
+    "description": "daed, A Modern Dashboard For dae.",
+    "arch": "x86_64",
+    "files": [
+      {
+        "src": "daed-linux-x86_64/daed-linux-x86_64",
+        "dest": "/usr/bin/daed",
+        "mode": "0755"
+      },
+      {
+        "src": "daed-linux-x86_64/daed.service",
+        "dest": "/usr/lib/systemd/system/daed.service",
+        "mode": "0644"
+      },
+      {
+        "src": "daed-linux-x86_64/daed.desktop",
+        "dest": "/usr/share/applications/daed.desktop",
+        "mode": "0644"
+      },
+      {
+        "src": "daed-linux-x86_64/geoip.dat",
+        "dest": "/usr/share/daed/geoip.dat",
+        "mode": "0644"
+      },
+      {
+        "src": "daed-linux-x86_64/geosite.dat",
+        "dest": "/usr/share/daed/geosite.dat",
+        "mode": "0644"
+      },
+      {
+        "src": "daed-linux-x86_64/icons/16x16.png",
+        "dest": "/usr/share/icons/hicolor/16x16/apps/daed.png",
+        "mode": "0644"
+      },
+      {
+        "src": "daed-linux-x86_64/icons/24x24.png",
+        "dest": "/usr/share/icons/hicolor/24x24/apps/daed.png",
+        "mode": "0644"
+      },
+      {
+        "src": "daed-linux-x86_64/icons/32x32.png",
+        "dest": "/usr/share/icons/hicolor/32x32/apps/daed.png",
+        "mode": "0644"
+      },
+      {
+        "src": "daed-linux-x86_64/icons/48x48.png",
+        "dest": "/usr/share/icons/hicolor/48x48/apps/daed.png",
+        "mode": "0644"
+      },
+      {
+        "src": "daed-linux-x86_64/icons/64x64.png",
+        "dest": "/usr/share/icons/hicolor/64x64/apps/daed.png",
+        "mode": "0644"
+      },
+      {
+        "src": "daed-linux-x86_64/icons/128x128.png",
+        "dest": "/usr/share/icons/hicolor/128x128/apps/daed.png",
+        "mode": "0644"
+      },
+      {
+        "src": "daed-linux-x86_64/icons/256x256.png",
+        "dest": "/usr/share/icons/hicolor/256x256/apps/daed.png",
+        "mode": "0644"
+      },
+      {
+        "src": "daed-linux-x86_64/icons/512x512.png",
+        "dest": "/usr/share/icons/hicolor/512x512/apps/daed.png",
+        "mode": "0644"
+      },
+      {
+        "src": "daed-linux-x86_64/icons/1024x1024.png",
+        "dest": "/usr/share/icons/hicolor/1024x1024/apps/daed.png",
+        "mode": "0644"
+      }
+    ]
+  }
+}

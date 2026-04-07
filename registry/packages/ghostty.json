@@ -1,0 +1,25 @@
+{
+  "name": "ghostty",
+  "enabled": true,
+  "notes": "Rebuilt for EL10 from official ghostty source using the upstream COPR packaging spec.",
+  "requires": [
+    "gtk4-layer-shell"
+  ],
+  "source": {
+    "type": "git",
+    "repo": "https://github.com/scottames/copr.git",
+    "ref": "main"
+  },
+  "build": {
+    "method": "rpmbuild-spec",
+    "spec_path": "ghostty/ghostty.spec",
+    "install_from_repo": [
+      "gtk4-layer-shell"
+    ],
+    "publish_exclude_patterns": [
+      "-debuginfo-",
+      "-debugsource-",
+      "\\.src\\.rpm$"
+    ]
+  }
+}

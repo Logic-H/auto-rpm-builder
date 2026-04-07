@@ -1,0 +1,22 @@
+---
+- name: Install client repo file
+  hosts: all
+  become: true
+  vars:
+    huazi_repo_filename: /etc/yum.repos.d/huazi-el10-extra.repo
+  tasks:
+    - name: Install huazi repo file
+      ansible.builtin.copy:
+        dest: "{{ huazi_repo_filename }}"
+        mode: "0644"
+        content: |
+          [huazi-el10-extra]
+          name=Huazi EL10 Extra
+          baseurl={{ packager_repo_baseurl }}
+          enabled=1
+          gpgcheck=1
+          repo_gpgcheck=1
+          gpgkey={{ packager_repo_gpgkey_url }}
+
+    - name: Refresh dnf metadata
+      ansible.builtin.command: dnf makecache

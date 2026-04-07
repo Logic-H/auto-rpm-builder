@@ -1,0 +1,152 @@
+---
+- name: Install repo builder packages
+  ansible.builtin.dnf:
+    name: "{{ packager_server_packages }}"
+    state: present
+
+- name: Create packager root
+  ansible.builtin.file:
+    path: "{{ packager_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create runtime directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ packager_runtime_dirs }}"
+
+- name: Tighten GPG home permissions
+  ansible.builtin.file:
+    path: "{{ packager_gpg_home }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Create staging directory
+  ansible.builtin.file:
+    path: "{{ packager_stage_dir }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+
+- name: Sync packager code to staging
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../../"
+    dest: "{{ packager_stage_dir }}/"
+    delete: true
+    rsync_opts:
+      - "--exclude=ansible"
+      - "--exclude=state"
+      - "--exclude=work"
+  delegate_to: localhost
+  become: false
+
+- name: Sync staged packager code into root path
+  ansible.builtin.command:
+    cmd: >-
+      rsync -a --delete
+      --exclude=state/
+      --exclude=work/
+      {{ packager_stage_dir }}/ {{ packager_root }}/
+
+- name: Set script permissions
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: "0755"
+  loop:
+    - "{{ packager_root }}/scripts/packager.py"
+    - "{{ packager_root }}/scripts/register.py"
+    - "{{ packager_root }}/scripts/snapshot_ghostty.py"
+
+- name: Install systemd service unit
+  ansible.builtin.copy:
+    src: "{{ packager_root }}/systemd/auto-rpm-builder.service"
+    dest: /etc/systemd/system/auto-rpm-builder.service
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install systemd timer unit
+  ansible.builtin.copy:
+    src: "{{ packager_root }}/systemd/auto-rpm-builder.timer"
+    dest: /etc/systemd/system/auto-rpm-builder.timer
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Create repo directory
+  ansible.builtin.file:
+    path: "{{ packager_repo_dir }}/Packages"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure SELinux file contexts
+  community.general.sefcontext:
+    target: "{{ item.target }}"
+    setype: "{{ item.setype }}"
+    state: present
+  loop: "{{ packager_files_contexts }}"
+
+- name: Restore SELinux contexts on repo directory
+  ansible.builtin.command: "restorecon -RF {{ packager_repo_dir | dirname | dirname }}"
+
+- name: Remove legacy nginx repo vhost
+  ansible.builtin.file:
+    path: /etc/nginx/conf.d/rhel10-repo.conf
+    state: absent
+  notify:
+    - reload nginx
+
+- name: Install nginx repo vhost
+  ansible.builtin.copy:
+    dest: /etc/nginx/conf.d/huazi-custom-repo.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      server {
+          listen 80 default_server;
+          listen [::]:80 default_server;
+          server_name repo.imhzj.com;
+          root /srv/repos;
+          autoindex on;
+          location / {
+              autoindex_exact_size off;
+              autoindex_localtime on;
+          }
+      }
+  notify:
+    - reload nginx
+
+- name: Ensure nginx is enabled
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true
+
+- name: Allow HTTP in firewalld when available
+  ansible.posix.firewalld:
+    service: http
+    permanent: true
+    state: enabled
+    immediate: true
+  failed_when: false
+
+- name: Configure auto RPM builder timer
+  ansible.builtin.systemd:
+    name: auto-rpm-builder.timer
+    daemon_reload: true
+    enabled: "{{ packager_enable_local_builder }}"
+    state: "{{ 'started' if packager_enable_local_builder else 'stopped' }}"

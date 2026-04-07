@@ -1,0 +1,6 @@
+---
+- name: Deploy auto RPM builder
+  hosts: repo_builder
+  become: true
+  roles:
+    - auto_rpm_builder

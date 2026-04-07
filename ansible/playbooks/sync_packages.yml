@@ -1,0 +1,13 @@
+---
+- name: Sync selected packages
+  hosts: repo_builder
+  become: true
+  vars:
+    packager_sync_targets: "{{ packager_packages }}"
+  tasks:
+    - name: Run sync-one for selected packages
+      ansible.builtin.command:
+        cmd: "{{ packager_root }}/scripts/packager.py sync-one {{ item }} --force"
+      environment:
+        PACKAGER_REPO_DIR: "{{ packager_repo_dir }}"
+      loop: "{{ packager_sync_targets }}"

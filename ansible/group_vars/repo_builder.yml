@@ -1,0 +1,34 @@
+---
+packager_root: /opt/packager
+packager_stage_dir: /home/cloud-user/auto-rpm-builder-stage
+packager_repo_dir: /srv/repos/custom/el10/x86_64
+packager_repo_baseurl: http://repo.imhzj.com/custom/el10/x86_64/
+packager_repo_gpgkey_url: http://repo.imhzj.com/custom/RPM-GPG-KEY-huazi-el10
+packager_gpg_home: /opt/packager/gnupg
+packager_gpg_key_name: Huazi EL10 Repo <repo@imhzj.com>
+packager_gpg_public_key_path: /srv/repos/custom/RPM-GPG-KEY-huazi-el10
+packager_enable_local_builder: false
+packager_runtime_dirs:
+  - "{{ packager_root }}/state"
+  - "{{ packager_root }}/work"
+  - "{{ packager_gpg_home }}"
+packager_packages:
+  - dae
+  - daed
+  - gtk4-layer-shell
+  - ghostty
+packager_server_packages:
+  - dnf-plugins-core
+  - createrepo_c
+  - git
+  - gnupg2
+  - nginx
+  - policycoreutils-python-utils
+  - python3
+  - rpm-build
+  - rpm-sign
+  - rpmdevtools
+  - rsync
+packager_files_contexts:
+  - target: "/srv/repos/custom(/.*)?"
+    setype: httpd_sys_content_t

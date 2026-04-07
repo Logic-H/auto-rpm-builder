@@ -1,0 +1,21 @@
+{
+  "name": "dae",
+  "enabled": true,
+  "source": {
+    "type": "github-release",
+    "repo": "daeuniverse/dae",
+    "version_mode": "strip-v",
+    "asset_patterns": [
+      "dae.*x86_64.*\\.rpm$",
+      ".*x86_64.*\\.rpm$"
+    ]
+  },
+  "build": {
+    "method": "repack-rpm",
+    "release": "1",
+    "license": "AGPL-3.0-only",
+    "summary": "dae high-performance transparent proxy",
+    "description": "dae high-performance transparent proxy",
+    "arch": "x86_64"
+  }
+}

@@ -1,0 +1,107 @@
+name: Build And Publish Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package to build and publish
+        required: true
+        type: choice
+        options:
+          - dae
+          - daed
+          - gtk4-layer-shell
+          - ghostty
+
+concurrency:
+  group: build-${{ github.event.inputs.package }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/centos/centos:stream10
+
+    env:
+      PACKAGER_REPO_DIR: ${{ github.workspace }}/.tmprepo/el10/x86_64
+      PACKAGER_GPG_HOME: ${{ github.workspace }}/.tmprepo/gnupg
+      PACKAGER_GPG_PUBLIC_KEY_PATH: ${{ github.workspace }}/.tmprepo/RPM-GPG-KEY-unused
+
+    steps:
+      - name: Install base tooling
+        run: |
+          dnf -y install \
+            git \
+            python3 \
+            dnf-plugins-core \
+            rpm-build \
+            rpm-sign \
+            rpmdevtools \
+            createrepo_c \
+            gnupg2 \
+            rsync \
+            openssh-clients \
+            jq
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build package
+        run: |
+          chmod +x scripts/packager.py scripts/publish_remote.sh
+          ./scripts/packager.py build-one "${{ github.event.inputs.package }}" --force
+
+      - name: Collect built RPMs
+        run: |
+          mkdir -p dist
+          python3 - "${{ github.event.inputs.package }}" <<'PY'
+          import json
+          import shutil
+          import sys
+          from pathlib import Path
+
+          package = sys.argv[1]
+          state_path = Path("state") / f"{package}.json"
+          dist_dir = Path("dist")
+
+          with state_path.open() as f:
+              state = json.load(f)
+
+          rpm_paths = [Path(path) for path in state.get("last_built_rpms", [])]
+          if not rpm_paths:
+              raise SystemExit(f"no built RPMs recorded for {package}")
+
+          for rpm_path in rpm_paths:
+              if not rpm_path.exists():
+                  raise SystemExit(f"missing built RPM: {rpm_path}")
+              shutil.copy2(rpm_path, dist_dir / rpm_path.name)
+          PY
+
+      - name: Upload RPM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpms-${{ github.event.inputs.package }}
+          path: dist/*.rpm
+
+      - name: Configure SSH
+        env:
+          PACKAGER_REMOTE_SSH_KEY: ${{ secrets.PACKAGER_REMOTE_SSH_KEY }}
+          PACKAGER_REMOTE_HOST: ${{ secrets.PACKAGER_REMOTE_HOST }}
+        run: |
+          test -n "$PACKAGER_REMOTE_SSH_KEY"
+          test -n "$PACKAGER_REMOTE_HOST"
+          mkdir -p /root/.ssh
+          chmod 700 /root/.ssh
+          printf '%s\n' "$PACKAGER_REMOTE_SSH_KEY" > /root/.ssh/packager_remote
+          chmod 600 /root/.ssh/packager_remote
+          ssh-keyscan -H "$PACKAGER_REMOTE_HOST" >> /root/.ssh/known_hosts
+
+      - name: Publish to remote repo
+        env:
+          PACKAGER_REMOTE_KEY: /root/.ssh/packager_remote
+          PACKAGER_REMOTE_HOST: ${{ secrets.PACKAGER_REMOTE_HOST }}
+          PACKAGER_REMOTE_USER: ${{ secrets.PACKAGER_REMOTE_USER }}
+        run: |
+          export PACKAGER_REMOTE="${PACKAGER_REMOTE_USER:-cloud-user}@${PACKAGER_REMOTE_HOST}"
+          ./scripts/publish_remote.sh "${{ github.event.inputs.package }}"

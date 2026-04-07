@@ -1,0 +1,18 @@
+{
+  "name": "gtk4-layer-shell",
+  "enabled": true,
+  "notes": "Rebuilt for EL10 from the upstream COPR packaging repository.",
+  "source": {
+    "type": "git",
+    "repo": "https://github.com/scottames/copr.git",
+    "ref": "main"
+  },
+  "build": {
+    "method": "rpmbuild-spec",
+    "spec_path": "ghostty/gtk4-layer-shell.spec",
+    "publish_include_patterns": [
+      "^gtk4-layer-shell-.*\\.rpm$",
+      "^gtk4-layer-shell-devel-.*\\.rpm$"
+    ]
+  }
+}
