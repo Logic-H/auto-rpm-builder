@@ -7,6 +7,7 @@ REMOTE="${2:-${PACKAGER_REMOTE:-cloud-user@repo.imhzj.com}}"
 STATE_FILE="$ROOT/state/${PACKAGE}.json"
 STAGE_ROOT="${PACKAGER_REMOTE_STAGE_ROOT:-/home/cloud-user/auto-rpm-builder-stage}"
 STAGE_DIR="${STAGE_ROOT}/${PACKAGE}"
+REMOTE_HELPER="${STAGE_DIR}/remote_smoke_publish.sh"
 SSH_KEY="${PACKAGER_REMOTE_KEY:-$HOME/.ssh/id_ed25519}"
 SSH_OPTS=(-i "$SSH_KEY" -o BatchMode=yes -o StrictHostKeyChecking=accept-new)
 
@@ -42,4 +43,5 @@ done
 
 ssh "${SSH_OPTS[@]}" "$REMOTE" "rm -rf '$STAGE_DIR' && mkdir -p '$STAGE_DIR'"
 rsync -av -e "ssh ${SSH_OPTS[*]}" "${RPMS[@]}" "${REMOTE}:${STAGE_DIR}/"
-ssh "${SSH_OPTS[@]}" "$REMOTE" "sudo /opt/packager/scripts/packager.py import-rpms '$STAGE_DIR'/*.rpm"
+rsync -av -e "ssh ${SSH_OPTS[*]}" "$ROOT/scripts/remote_smoke_publish.sh" "${REMOTE}:${REMOTE_HELPER}"
+ssh "${SSH_OPTS[@]}" "$REMOTE" "chmod 755 '$REMOTE_HELPER' && sudo '$REMOTE_HELPER' '$PACKAGE' '$STAGE_DIR'"

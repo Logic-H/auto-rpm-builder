@@ -43,8 +43,18 @@ Workflow file:
 
 - `.github/workflows/build-and-publish-package.yml`
 
-It builds a selected package on a GitHub-hosted runner and then uploads the RPMs
-to the VPS, where `/opt/packager/scripts/packager.py import-rpms` publishes them.
+It can run in two modes:
+
+- scheduled automatic polling every hour
+- manual dispatch for one selected package
+
+Automatic flow:
+
+- detect upstream version changes for all enabled packages
+- build changed packages in dependency order
+- upload RPMs to a temporary directory on the repo host
+- smoke-test each package inside a temporary `podman` EL10 container on the repo host
+- publish only after the smoke test passes
 
 Required GitHub repository secrets:
 
@@ -61,3 +71,5 @@ Required GitHub repository secrets:
 - GitHub runners never need the repo signing private key.
 - For packages with local dependency chains such as `ghostty -> gtk4-layer-shell`,
   `build-one` can reuse dependency RPMs built earlier in the same run.
+- Smoke tests run on the repo host but inside disposable `podman` containers, so
+  the host stays clean while still validating a real `dnf install` path.

@@ -1,13 +1,16 @@
 name: Build And Publish Package
 
 on:
+  schedule:
+    - cron: "17 * * * *"
   workflow_dispatch:
     inputs:
       package:
-        description: Package to build and publish
-        required: true
+        description: Optional package to build and publish
+        required: false
         type: choice
         options:
+          - ""
           - dae
           - daed
           - gtk4-layer-shell
@@ -44,67 +47,27 @@ jobs:
             gnupg2 \
             rsync \
             openssh-clients \
-            jq
+            jq \
+            util-linux
 
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Build package
-        if: ${{ github.event.inputs.package != 'ghostty' }}
+      - name: Detect packages to build
+        id: detect
         run: |
-          chmod +x scripts/packager.py scripts/publish_remote.sh
-          ./scripts/packager.py build-one "${{ github.event.inputs.package }}" --force
-
-      - name: Install ghostty toolchain
-        if: ${{ github.event.inputs.package == 'ghostty' }}
-        run: |
-          dnf -y install curl xz tar gzip ninja-build python3-pip
-          curl -fsSL https://ziglang.org/download/0.15.2/zig-x86_64-linux-0.15.2.tar.xz -o /tmp/zig.tar.xz
-          tar -C /opt -xf /tmp/zig.tar.xz
-          ln -sf /opt/zig-x86_64-linux-0.15.2/zig /usr/local/bin/zig
-          curl -fsSL https://github.com/jgm/pandoc/releases/download/3.8/pandoc-3.8-linux-amd64.tar.gz -o /tmp/pandoc.tar.gz
-          tar -C /tmp -xf /tmp/pandoc.tar.gz
-          install -m 0755 /tmp/pandoc-3.8/bin/pandoc /usr/local/bin/pandoc
-
-      - name: Build ghostty package
-        if: ${{ github.event.inputs.package == 'ghostty' }}
-        run: |
-          chmod +x scripts/packager.py scripts/publish_remote.sh
-          ./scripts/packager.py build-one ghostty --force
-
-      - name: Collect built RPMs
-        run: |
-          mkdir -p dist
-          python3 - "${{ github.event.inputs.package }}" <<'PY'
-          import json
-          import shutil
-          import sys
-          from pathlib import Path
-
-          package = sys.argv[1]
-          state_path = Path("state") / f"{package}.json"
-          dist_dir = Path("dist")
-
-          with state_path.open() as f:
-              state = json.load(f)
-
-          rpm_paths = [Path(path) for path in state.get("last_built_rpms", [])]
-          if not rpm_paths:
-              raise SystemExit(f"no built RPMs recorded for {package}")
-
-          for rpm_path in rpm_paths:
-              if not rpm_path.exists():
-                  raise SystemExit(f"missing built RPM: {rpm_path}")
-              shutil.copy2(rpm_path, dist_dir / rpm_path.name)
-          PY
-
-      - name: Upload RPM artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: rpms-${{ github.event.inputs.package }}
-          path: dist/*.rpm
+          chmod +x scripts/packager.py scripts/publish_remote.sh scripts/check_updates.py scripts/remote_smoke_publish.sh
+          if [[ -n "${{ github.event.inputs.package }}" ]]; then
+            python3 scripts/check_updates.py "${{ github.event.inputs.package }}" > /tmp/update-check.json
+            echo 'changed_names=["${{ github.event.inputs.package }}"]' >> "$GITHUB_OUTPUT"
+            echo 'has_updates=true' >> "$GITHUB_OUTPUT"
+          else
+            python3 scripts/check_updates.py > /tmp/update-check.json
+          fi
+          cat /tmp/update-check.json
 
       - name: Configure SSH
+        if: ${{ steps.detect.outputs.has_updates == 'true' }}
         env:
           PACKAGER_REMOTE_SSH_KEY: ${{ secrets.PACKAGER_REMOTE_SSH_KEY }}
           PACKAGER_REMOTE_HOST: ${{ secrets.PACKAGER_REMOTE_HOST }}
@@ -117,11 +80,70 @@ jobs:
           chmod 600 /root/.ssh/packager_remote
           ssh-keyscan -H "$PACKAGER_REMOTE_HOST" >> /root/.ssh/known_hosts
 
-      - name: Publish to remote repo
-        env:
-          PACKAGER_REMOTE_KEY: /root/.ssh/packager_remote
-          PACKAGER_REMOTE_HOST: ${{ secrets.PACKAGER_REMOTE_HOST }}
-          PACKAGER_REMOTE_USER: ${{ secrets.PACKAGER_REMOTE_USER }}
+      - name: Install ghostty toolchain
+        if: ${{ steps.detect.outputs.has_updates == 'true' }}
         run: |
-          export PACKAGER_REMOTE="${PACKAGER_REMOTE_USER:-cloud-user}@${PACKAGER_REMOTE_HOST}"
-          ./scripts/publish_remote.sh "${{ github.event.inputs.package }}"
+          dnf -y install curl xz tar gzip ninja-build python3-pip
+          curl -fsSL https://ziglang.org/download/0.15.2/zig-x86_64-linux-0.15.2.tar.xz -o /tmp/zig.tar.xz
+          tar -C /opt -xf /tmp/zig.tar.xz
+          ln -sf /opt/zig-x86_64-linux-0.15.2/zig /usr/local/bin/zig
+          curl -fsSL https://github.com/jgm/pandoc/releases/download/3.8/pandoc-3.8-linux-amd64.tar.gz -o /tmp/pandoc.tar.gz
+          tar -C /tmp -xf /tmp/pandoc.tar.gz
+          install -m 0755 /tmp/pandoc-3.8/bin/pandoc /usr/local/bin/pandoc
+
+      - name: Build, smoke test, and publish changed packages
+        if: ${{ steps.detect.outputs.has_updates == 'true' }}
+        run: |
+          mapfile -t PACKAGES < <(python3 - <<'PY'
+          import json
+          import os
+
+          names = json.loads(os.environ["CHANGED_NAMES"])
+          for name in names:
+              print(name)
+          PY
+          )
+
+          for package in "${PACKAGES[@]}"; do
+            ./scripts/packager.py build-one "$package" --force
+            ./scripts/publish_remote.sh "$package"
+          done
+        env:
+          CHANGED_NAMES: ${{ steps.detect.outputs.changed_names }}
+
+      - name: Collect built RPMs
+        if: ${{ steps.detect.outputs.has_updates == 'true' }}
+        run: |
+          mkdir -p dist
+          python3 - <<'PY'
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+
+          dist_dir = Path("dist")
+          for package in json.loads(os.environ["CHANGED_NAMES"]):
+              state_path = Path("state") / f"{package}.json"
+              with state_path.open() as f:
+                  state = json.load(f)
+              rpm_paths = [Path(path) for path in state.get("last_built_rpms", [])]
+              if not rpm_paths:
+                  raise SystemExit(f"no built RPMs recorded for {package}")
+              for rpm_path in rpm_paths:
+                  if not rpm_path.exists():
+                      raise SystemExit(f"missing built RPM: {rpm_path}")
+                  shutil.copy2(rpm_path, dist_dir / rpm_path.name)
+          PY
+        env:
+          CHANGED_NAMES: ${{ steps.detect.outputs.changed_names }}
+
+      - name: Upload RPM artifacts
+        if: ${{ steps.detect.outputs.has_updates == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpms-auto
+          path: dist/*.rpm
+
+      - name: No updates
+        if: ${{ steps.detect.outputs.has_updates != 'true' }}
+        run: echo "No upstream updates detected."
