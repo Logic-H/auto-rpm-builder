@@ -65,10 +65,6 @@ jobs:
           curl -fsSL https://github.com/jgm/pandoc/releases/download/3.8/pandoc-3.8-linux-amd64.tar.gz -o /tmp/pandoc.tar.gz
           tar -C /tmp -xf /tmp/pandoc.tar.gz
           install -m 0755 /tmp/pandoc-3.8/bin/pandoc /usr/local/bin/pandoc
-          git clone --depth=1 https://gitlab.gnome.org/jwestman/blueprint-compiler.git /tmp/blueprint-compiler
-          meson setup /tmp/blueprint-compiler /tmp/blueprint-compiler/.build --prefix=/usr/local
-          meson compile -C /tmp/blueprint-compiler/.build
-          meson install -C /tmp/blueprint-compiler/.build
 
       - name: Build ghostty package
         if: ${{ github.event.inputs.package == 'ghostty' }}

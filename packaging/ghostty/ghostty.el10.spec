@@ -5,7 +5,7 @@ Summary:        Fast, feature-rich, and cross-platform terminal emulator that us
 
 License:        MIT
 URL:            https://github.com/ghostty-org/ghostty
-Source0:        https://github.com/ghostty-org/ghostty/archive/refs/tags/v%{version}.tar.gz
+Source0:        https://release.files.ghostty.org/%{version}/ghostty-%{version}.tar.gz
 
 ExclusiveArch: x86_64 aarch64
 
@@ -46,11 +46,14 @@ This package provides the development files for libghostty-vt.
 
 %prep
 %setup -q -n ghostty-%{version}
+mkdir -p %{_builddir}/ghostty-offline-cache
+ZIG_GLOBAL_CACHE_DIR=%{_builddir}/ghostty-offline-cache ./nix/build-support/fetch-zig-cache.sh
 
 %build
 DESTDIR=%{buildroot} zig build \
     --summary all \
     --prefix "%{_prefix}" \
+    --system "%{_builddir}/ghostty-offline-cache/p" \
     -Dversion-string=%{version}-%{release} \
     -Doptimize=ReleaseFast \
     -Dcpu=baseline \
