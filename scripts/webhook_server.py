@@ -73,7 +73,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         queue_path = enqueue_payload(payload)
-        subprocess.run(["systemctl", "start", QUEUE_SERVICE], check=False)
+        subprocess.run(["systemctl", "start", "--no-block", QUEUE_SERVICE], check=False)
         response = {"queued": str(queue_path)}
         encoded = (json.dumps(response) + "\n").encode("utf-8")
         self.send_response(HTTPStatus.ACCEPTED)

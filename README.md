@@ -48,7 +48,7 @@ Workflow file:
 
 - `.github/workflows/build-and-publish-package.yml`
 
-It can run in two modes:
+It can run in these modes:
 
 - scheduled automatic polling every hour
 - push-triggered incremental builds on `main`
@@ -60,24 +60,24 @@ Automatic flow:
 - detect package definitions and packaging changes from Git on push
 - merge both change sets and keep only affected packages
 - build changed packages in dependency order
-- upload RPMs to a temporary directory on the repo host
+- upload a build bundle as a GitHub Actions artifact
+- send a signed webhook to `repo.imhzj.com`
+- let the VPS queue worker pull the artifact from GitHub
 - smoke-test each package inside a temporary `podman` EL10 container on the repo host
 - publish only after the smoke test passes
 - smoke-test behavior comes from each package definition in `registry/packages/*.json`
 
 Required GitHub repository secrets:
 
-- `PACKAGER_REMOTE_HOST`
-  - example: `repo.imhzj.com`
-- `PACKAGER_REMOTE_USER`
-  - example: `cloud-user`
-- `PACKAGER_REMOTE_SSH_KEY`
-  - private key that can SSH to the repo host and run `sudo /opt/packager/scripts/packager.py import-rpms`
+- `PACKAGER_WEBHOOK_SECRET`
+  - shared HMAC secret used by GitHub Actions and the VPS webhook endpoint
 
 ## Notes
 
 - The signing key stays on the VPS.
 - GitHub runners never need the repo signing private key.
+- GitHub runners also never need SSH access to the repo host.
+- The VPS needs a GitHub token in `/etc/auto-rpm-builder.env` so it can download workflow artifacts.
 - For packages with local dependency chains such as `ghostty -> gtk4-layer-shell`,
   `build-one` can reuse dependency RPMs built earlier in the same run.
 - Smoke tests run on the repo host but inside disposable `podman` containers, so
