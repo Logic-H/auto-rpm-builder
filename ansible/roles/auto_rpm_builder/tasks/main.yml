@@ -62,9 +62,13 @@
     path: "{{ item }}"
     mode: "0755"
   loop:
+    - "{{ packager_root }}/scripts/fetch_remote_state.py"
     - "{{ packager_root }}/scripts/packager.py"
+    - "{{ packager_root }}/scripts/process_queue.py"
     - "{{ packager_root }}/scripts/register.py"
+    - "{{ packager_root }}/scripts/remote_smoke_publish.sh"
     - "{{ packager_root }}/scripts/snapshot_ghostty.py"
+    - "{{ packager_root }}/scripts/webhook_server.py"
 
 - name: Install systemd service unit
   ansible.builtin.copy:
@@ -84,9 +88,35 @@
     group: root
     mode: "0644"
 
+- name: Install webhook service unit
+  ansible.builtin.copy:
+    src: "{{ packager_root }}/systemd/auto-rpm-builder-webhook.service"
+    dest: /etc/systemd/system/auto-rpm-builder-webhook.service
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install queue service unit
+  ansible.builtin.copy:
+    src: "{{ packager_root }}/systemd/auto-rpm-builder-queue.service"
+    dest: /etc/systemd/system/auto-rpm-builder-queue.service
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Create repo directory
   ansible.builtin.file:
     path: "{{ packager_repo_dir }}/Packages"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create public state directory
+  ansible.builtin.file:
+    path: "{{ packager_public_state_dir }}"
     state: directory
     owner: root
     group: root
@@ -119,12 +149,18 @@
       server {
           listen 80 default_server;
           listen [::]:80 default_server;
-          server_name repo.imhzj.com;
-          root /srv/repos;
-          autoindex on;
-          location / {
-              autoindex_exact_size off;
-              autoindex_localtime on;
+      server_name repo.imhzj.com;
+      root /srv/repos;
+      autoindex on;
+      location = /hooks/packager {
+          proxy_pass http://127.0.0.1:9876;
+          proxy_set_header Host $host;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+      }
+      location / {
+          autoindex_exact_size off;
+          autoindex_localtime on;
           }
       }
   notify:
@@ -150,3 +186,10 @@
     daemon_reload: true
     enabled: "{{ packager_enable_local_builder }}"
     state: "{{ 'started' if packager_enable_local_builder else 'stopped' }}"
+
+- name: Enable webhook service
+  ansible.builtin.systemd:
+    name: auto-rpm-builder-webhook.service
+    daemon_reload: true
+    enabled: true
+    state: started

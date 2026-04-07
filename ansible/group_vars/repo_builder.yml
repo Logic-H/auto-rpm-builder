@@ -12,11 +12,17 @@ packager_runtime_dirs:
   - "{{ packager_root }}/state"
   - "{{ packager_root }}/work"
   - "{{ packager_gpg_home }}"
+  - "{{ packager_root }}/queue"
+  - "{{ packager_root }}/queue/pending"
+  - "{{ packager_root }}/queue/processing"
+  - "{{ packager_root }}/queue/done"
+  - "{{ packager_root }}/queue/failed"
 packager_packages:
   - dae
   - daed
   - gtk4-layer-shell
   - ghostty
+  - easyconnect
 packager_server_packages:
   - dnf-plugins-core
   - createrepo_c
@@ -29,6 +35,7 @@ packager_server_packages:
   - rpm-sign
   - rpmdevtools
   - rsync
+packager_public_state_dir: /srv/repos/custom/state
 packager_files_contexts:
   - target: "/srv/repos/custom(/.*)?"
     setype: httpd_sys_content_t

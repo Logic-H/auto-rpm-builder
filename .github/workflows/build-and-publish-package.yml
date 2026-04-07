@@ -32,6 +32,7 @@ jobs:
       PACKAGER_REPO_DIR: ${{ github.workspace }}/.tmprepo/el10/x86_64
       PACKAGER_GPG_HOME: ${{ github.workspace }}/.tmprepo/gnupg
       PACKAGER_GPG_PUBLIC_KEY_PATH: ${{ github.workspace }}/.tmprepo/RPM-GPG-KEY-unused
+      PACKAGER_PUBLIC_STATE_BASE_URL: http://repo.imhzj.com/custom/state
 
     steps:
       - name: Install base tooling
@@ -47,8 +48,6 @@ jobs:
             rpmdevtools \
             createrepo_c \
             gnupg2 \
-            rsync \
-            openssh-clients \
             jq \
             util-linux
 
@@ -57,28 +56,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure SSH
-        env:
-          PACKAGER_REMOTE_SSH_KEY: ${{ secrets.PACKAGER_REMOTE_SSH_KEY }}
-          PACKAGER_REMOTE_HOST: ${{ secrets.PACKAGER_REMOTE_HOST }}
+      - name: Fetch published package state
         run: |
-          test -n "$PACKAGER_REMOTE_SSH_KEY"
-          test -n "$PACKAGER_REMOTE_HOST"
-          mkdir -p /root/.ssh
-          chmod 700 /root/.ssh
-          printf '%s\n' "$PACKAGER_REMOTE_SSH_KEY" > /root/.ssh/packager_remote
-          chmod 600 /root/.ssh/packager_remote
-          ssh-keyscan -H "$PACKAGER_REMOTE_HOST" >> /root/.ssh/known_hosts
-
-      - name: Sync remote package state
-        env:
-          PACKAGER_REMOTE_HOST: ${{ secrets.PACKAGER_REMOTE_HOST }}
-          PACKAGER_REMOTE_USER: ${{ secrets.PACKAGER_REMOTE_USER }}
-        run: |
-          mkdir -p state
-          rsync -av -e "ssh -i /root/.ssh/packager_remote -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
-            "${PACKAGER_REMOTE_USER:-cloud-user}@${PACKAGER_REMOTE_HOST}:/opt/packager/state/" \
-            state/ || true
+          chmod +x scripts/fetch_remote_state.py
+          ./scripts/fetch_remote_state.py "$PACKAGER_PUBLIC_STATE_BASE_URL" registry/packages state
 
       - name: Detect packages to build
         id: detect
@@ -89,7 +70,7 @@ jobs:
           CURRENT_SHA: ${{ github.sha }}
           EVENT_PATH: ${{ github.event_path }}
         run: |
-          chmod +x scripts/packager.py scripts/publish_remote.sh scripts/check_updates.py scripts/remote_smoke_publish.sh scripts/export_smoke_test.py scripts/validate_registry.py scripts/detect_changed_packages.py scripts/finalize_detect.py
+          chmod +x scripts/packager.py scripts/check_updates.py scripts/remote_smoke_publish.sh scripts/export_smoke_test.py scripts/validate_registry.py scripts/detect_changed_packages.py scripts/finalize_detect.py
           python3 scripts/validate_registry.py
           python3 scripts/check_updates.py > /tmp/update-check.json
           cat /tmp/update-check.json
@@ -118,13 +99,10 @@ jobs:
           tar -C /tmp -xf /tmp/pandoc.tar.gz
           install -m 0755 /tmp/pandoc-3.8/bin/pandoc /usr/local/bin/pandoc
 
-      - name: Build, smoke test, and publish changed packages
+      - name: Build changed packages
         if: ${{ steps.detect.outputs.has_updates == 'true' }}
         env:
           CHANGED_NAMES: ${{ steps.detect.outputs.changed_names }}
-          PACKAGER_REMOTE_KEY: /root/.ssh/packager_remote
-          PACKAGER_REMOTE_HOST: ${{ secrets.PACKAGER_REMOTE_HOST }}
-          PACKAGER_REMOTE_USER: ${{ secrets.PACKAGER_REMOTE_USER }}
         run: |
           mapfile -t PACKAGES < <(python3 - <<'PY'
           import json
@@ -138,41 +116,87 @@ jobs:
 
           for package in "${PACKAGES[@]}"; do
             ./scripts/packager.py build-one "$package" --force
-            ./scripts/publish_remote.sh "$package"
           done
 
-      - name: Collect built RPMs
+      - name: Collect build bundle
         if: ${{ steps.detect.outputs.has_updates == 'true' }}
         run: |
-          mkdir -p dist
+          mkdir -p bundle
           python3 - <<'PY'
           import json
           import os
           import shutil
           from pathlib import Path
+          import subprocess
 
-          dist_dir = Path("dist")
+          bundle_dir = Path("bundle")
           for package in json.loads(os.environ["CHANGED_NAMES"]):
               state_path = Path("state") / f"{package}.json"
               with state_path.open() as f:
                   state = json.load(f)
+              package_dir = bundle_dir / package
+              package_dir.mkdir(parents=True, exist_ok=True)
               rpm_paths = [Path(path) for path in state.get("last_built_rpms", [])]
               if not rpm_paths:
                   raise SystemExit(f"no built RPMs recorded for {package}")
               for rpm_path in rpm_paths:
                   if not rpm_path.exists():
                       raise SystemExit(f"missing built RPM: {rpm_path}")
-                  shutil.copy2(rpm_path, dist_dir / rpm_path.name)
+                  shutil.copy2(rpm_path, package_dir / rpm_path.name)
+              shutil.copy2(state_path, package_dir / "state.json")
+              subprocess.run(
+                  ["python3", "scripts/export_smoke_test.py", package, str(package_dir / "smoke-test.json")],
+                  check=True,
+              )
           PY
         env:
           CHANGED_NAMES: ${{ steps.detect.outputs.changed_names }}
 
-      - name: Upload RPM artifacts
+      - name: Upload build bundle
         if: ${{ steps.detect.outputs.has_updates == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: rpms-auto
-          path: dist/*.rpm
+          name: rpms-el10-${{ github.run_id }}
+          path: bundle/
+
+      - name: Notify VPS webhook
+        if: ${{ steps.detect.outputs.has_updates == 'true' }}
+        env:
+          CHANGED_NAMES: ${{ steps.detect.outputs.changed_names }}
+          PACKAGER_WEBHOOK_SECRET: ${{ secrets.PACKAGER_WEBHOOK_SECRET }}
+          PACKAGER_WEBHOOK_URL: http://repo.imhzj.com/hooks/packager
+          ARTIFACT_NAME: rpms-el10-${{ github.run_id }}
+        run: |
+          test -n "$PACKAGER_WEBHOOK_SECRET"
+          python3 - <<'PY' >/tmp/webhook-payload.json
+          import json
+          import os
+
+          payload = {
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "artifact_name": os.environ["ARTIFACT_NAME"],
+              "packages": json.loads(os.environ["CHANGED_NAMES"]),
+              "sha": os.environ["GITHUB_SHA"],
+              "ref": os.environ["GITHUB_REF"],
+          }
+          print(json.dumps(payload))
+          PY
+          python3 - <<'PY' >/tmp/webhook-signature.txt
+          import hashlib
+          import hmac
+          import os
+          from pathlib import Path
+
+          body = Path("/tmp/webhook-payload.json").read_bytes()
+          secret = os.environ["PACKAGER_WEBHOOK_SECRET"].encode("utf-8")
+          print("sha256=" + hmac.new(secret, body, hashlib.sha256).hexdigest())
+          PY
+          curl -fsS -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-Hub-Signature-256: $(cat /tmp/webhook-signature.txt)" \
+            --data-binary @/tmp/webhook-payload.json \
+            "$PACKAGER_WEBHOOK_URL"
 
       - name: No updates
         if: ${{ steps.detect.outputs.has_updates != 'true' }}

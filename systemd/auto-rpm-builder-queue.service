@@ -1,0 +1,10 @@
+[Unit]
+Description=Auto RPM Builder Queue Processor
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/auto-rpm-builder.env
+ExecStart=/usr/bin/python3 /opt/packager/scripts/process_queue.py
+WorkingDirectory=/opt/packager
