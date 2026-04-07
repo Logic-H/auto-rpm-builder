@@ -484,6 +484,16 @@ def build_rpms_from_spec(pkg, source_info):
                 raise RuntimeError(f"extra spec file not found: {extra_src}")
             shutil.copy2(extra_src, rpmbuild_root / "SPECS" / Path(extra_spec).name)
 
+        for extra_source in build.get("extra_sources", []):
+            extra_src = (ROOT / extra_source).resolve()
+            if not extra_src.exists():
+                raise RuntimeError(f"extra source file not found: {extra_src}")
+            dest = rpmbuild_root / "SOURCES" / Path(extra_source).name
+            if extra_src.is_dir():
+                clone_tree(extra_src, dest)
+            else:
+                shutil.copy2(extra_src, dest)
+
         for item in build.get("source_overrides", []):
             src = repo_root / item["src"]
             dest = rpmbuild_root / item["dest"].lstrip("/")

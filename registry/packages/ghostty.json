@@ -14,6 +14,9 @@
     "method": "rpmbuild-spec",
     "spec_path": "ghostty/ghostty.spec",
     "spec_override": "packaging/ghostty/ghostty.el10.spec",
+    "extra_sources": [
+      "packaging/ghostty/ghostty-harfbuzz-el10.patch"
+    ],
     "install_from_repo": [
       "gtk4-layer-shell"
     ],
