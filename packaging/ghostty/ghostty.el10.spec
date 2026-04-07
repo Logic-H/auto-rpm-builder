@@ -101,7 +101,7 @@ DESTDIR=%{buildroot} zig build \
 %{_prefix}/share/dbus-1/services/com.mitchellh.ghostty.service
 %{_prefix}/share/locale/*/LC_MESSAGES/com.mitchellh.ghostty.mo
 %{_prefix}/share/metainfo/com.mitchellh.ghostty.metainfo.xml
-%{_prefix}/share/systemd/user/app-com.mitchellh.ghostty.service
+%{_prefix}/lib/systemd/user/app-com.mitchellh.ghostty.service
 %{_prefix}/lib/libghostty-vt.so.0
 %{_prefix}/lib/libghostty-vt.so.0.1.0
 
