@@ -16,14 +16,7 @@ on:
       package:
         description: Optional package to build and publish
         required: false
-        type: choice
-        options:
-          - ""
-          - dae
-          - daed
-          - easyconnect
-          - gtk4-layer-shell
-          - ghostty
+        type: string
 
 concurrency:
   group: build-${{ github.workflow }}-${{ github.ref_name }}-${{ github.event_name }}
@@ -79,62 +72,62 @@ jobs:
 
           if [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$INPUT_PACKAGE" ]]; then
             python3 - "$INPUT_PACKAGE" <<'PY' >/tmp/final-detect.json
-import json
-import sys
+            import json
+            import sys
 
-package = sys.argv[1]
-payload = {
-    "reason": "manual",
-    "changed_names": [package],
-    "has_updates": True,
-}
-print(json.dumps(payload, indent=2))
-PY
+            package = sys.argv[1]
+            payload = {
+                "reason": "manual",
+                "changed_names": [package],
+                "has_updates": True,
+            }
+            print(json.dumps(payload, indent=2))
+            PY
           elif [[ "$EVENT_NAME" == "push" && -n "$BEFORE_SHA" && "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
             python3 scripts/detect_changed_packages.py "$BEFORE_SHA" "$CURRENT_SHA" > /tmp/git-detect.json
             cat /tmp/git-detect.json
             python3 - <<'PY' >/tmp/final-detect.json
-import json
-from pathlib import Path
+            import json
+            from pathlib import Path
 
-update_data = json.loads(Path("/tmp/update-check.json").read_text())
-git_data = json.loads(Path("/tmp/git-detect.json").read_text())
-names = sorted(set(update_data.get("changed_names", [])) | set(git_data.get("changed_names", [])))
-payload = {
-    "reason": "push",
-    "changed_names": names,
-    "has_updates": bool(names),
-    "upstream_changed_names": update_data.get("changed_names", []),
-    "git_changed_names": git_data.get("changed_names", []),
-}
-print(json.dumps(payload, indent=2))
-PY
+            update_data = json.loads(Path("/tmp/update-check.json").read_text())
+            git_data = json.loads(Path("/tmp/git-detect.json").read_text())
+            names = sorted(set(update_data.get("changed_names", [])) | set(git_data.get("changed_names", [])))
+            payload = {
+                "reason": "push",
+                "changed_names": names,
+                "has_updates": bool(names),
+                "upstream_changed_names": update_data.get("changed_names", []),
+                "git_changed_names": git_data.get("changed_names", []),
+            }
+            print(json.dumps(payload, indent=2))
+            PY
           else
             python3 - <<'PY' >/tmp/final-detect.json
-import json
-from pathlib import Path
+            import json
+            from pathlib import Path
 
-update_data = json.loads(Path("/tmp/update-check.json").read_text())
-payload = {
-    "reason": "scheduled",
-    "changed_names": update_data.get("changed_names", []),
-    "has_updates": update_data.get("has_updates", False),
-}
-print(json.dumps(payload, indent=2))
-PY
+            update_data = json.loads(Path("/tmp/update-check.json").read_text())
+            payload = {
+                "reason": "scheduled",
+                "changed_names": update_data.get("changed_names", []),
+                "has_updates": update_data.get("has_updates", False),
+            }
+            print(json.dumps(payload, indent=2))
+            PY
           fi
 
           cat /tmp/final-detect.json
           python3 - <<'PY'
-import json
-import os
-from pathlib import Path
+          import json
+          import os
+          from pathlib import Path
 
-payload = json.loads(Path("/tmp/final-detect.json").read_text())
-with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-    f.write(f"has_updates={'true' if payload['has_updates'] else 'false'}\n")
-    f.write(f"changed_names={json.dumps(payload['changed_names'])}\n")
-PY
+          payload = json.loads(Path("/tmp/final-detect.json").read_text())
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"has_updates={'true' if payload['has_updates'] else 'false'}\n")
+              f.write(f"changed_names={json.dumps(payload['changed_names'])}\n")
+          PY
 
       - name: Configure SSH
         if: ${{ steps.detect.outputs.has_updates == 'true' }}
