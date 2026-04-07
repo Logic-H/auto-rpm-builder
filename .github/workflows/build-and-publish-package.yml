@@ -13,6 +13,7 @@ on:
           - ""
           - dae
           - daed
+          - easyconnect
           - gtk4-layer-shell
           - ghostty
 
