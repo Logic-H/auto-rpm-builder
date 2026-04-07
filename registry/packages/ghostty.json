@@ -25,5 +25,17 @@
       "-debugsource-",
       "\\.src\\.rpm$"
     ]
+  },
+  "test": {
+    "install": [
+      "ghostty"
+    ],
+    "files": [
+      "/usr/bin/ghostty",
+      "/usr/share/applications/com.mitchellh.ghostty.desktop"
+    ],
+    "commands": [
+      "grep -q '^Exec=/usr/bin/ghostty' /usr/share/applications/com.mitchellh.ghostty.desktop"
+    ]
   }
 }

@@ -55,6 +55,7 @@ Automatic flow:
 - upload RPMs to a temporary directory on the repo host
 - smoke-test each package inside a temporary `podman` EL10 container on the repo host
 - publish only after the smoke test passes
+- smoke-test behavior comes from each package definition in `registry/packages/*.json`
 
 Required GitHub repository secrets:
 
@@ -73,3 +74,5 @@ Required GitHub repository secrets:
   `build-one` can reuse dependency RPMs built earlier in the same run.
 - Smoke tests run on the repo host but inside disposable `podman` containers, so
   the host stays clean while still validating a real `dnf install` path.
+- New packages should define a `test` section with install targets, expected files,
+  and smoke-test commands so the pipeline stays fully declarative.

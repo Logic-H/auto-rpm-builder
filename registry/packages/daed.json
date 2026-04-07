@@ -88,5 +88,18 @@
         "mode": "0644"
       }
     ]
+  },
+  "test": {
+    "install": [
+      "daed"
+    ],
+    "files": [
+      "/usr/bin/daed",
+      "/usr/lib/systemd/system/daed.service",
+      "/usr/share/applications/daed.desktop"
+    ],
+    "commands": [
+      "/usr/bin/daed --help >/dev/null"
+    ]
   }
 }

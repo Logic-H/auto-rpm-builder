@@ -43,5 +43,17 @@
         "mode": "0644"
       }
     ]
+  },
+  "test": {
+    "install": [
+      "dae"
+    ],
+    "files": [
+      "/usr/bin/dae",
+      "/usr/lib/systemd/system/dae.service"
+    ],
+    "commands": [
+      "/usr/bin/dae --help >/dev/null"
+    ]
   }
 }

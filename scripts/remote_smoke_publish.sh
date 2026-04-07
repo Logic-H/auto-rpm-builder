@@ -6,6 +6,7 @@ STAGE_DIR="${2:?usage: remote_smoke_publish.sh <package> <stage_dir>}"
 CONTAINER_NAME="trilby-smoke-${PACKAGE}-$$"
 IMAGE="${PACKAGER_SMOKE_IMAGE:-registry.access.redhat.com/ubi10/ubi:latest}"
 REPO_URL="${PACKAGER_PUBLIC_REPO_URL:-http://repo.imhzj.com/custom/el10/x86_64/}"
+SMOKE_JSON="${STAGE_DIR}/smoke-test.json"
 
 cleanup() {
   podman rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
@@ -15,6 +16,10 @@ trap cleanup EXIT
 
 if [[ ! -d "$STAGE_DIR" ]]; then
   echo "stage dir not found: $STAGE_DIR" >&2
+  exit 1
+fi
+if [[ ! -f "$SMOKE_JSON" ]]; then
+  echo "smoke test config not found: $SMOKE_JSON" >&2
   exit 1
 fi
 
@@ -39,6 +44,48 @@ gpgcheck=0
 repo_gpgcheck=0
 EOF
 
+INSTALL_ARGS="$(python3 - "$SMOKE_JSON" <<'PY'
+import json
+import shlex
+import sys
+
+with open(sys.argv[1]) as f:
+    data = json.load(f)
+
+print(" ".join(shlex.quote(item) for item in data.get("install", [])))
+PY
+)"
+
+FILE_CHECKS="$(python3 - "$SMOKE_JSON" <<'PY'
+import json
+import shlex
+import sys
+
+with open(sys.argv[1]) as f:
+    data = json.load(f)
+
+for path in data.get("files", []):
+    print(f"test -e {shlex.quote(path)}")
+PY
+)"
+
+COMMAND_CHECKS="$(python3 - "$SMOKE_JSON" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as f:
+    data = json.load(f)
+
+for cmd in data.get("commands", []):
+    print(cmd)
+PY
+)"
+
+if [[ -z "$INSTALL_ARGS" ]]; then
+  echo "smoke test install targets are empty for $PACKAGE" >&2
+  exit 1
+fi
+
 podman run --name "$CONTAINER_NAME" --rm --cgroups=disabled \
   -v "$STAGE_DIR/.smoke-repo:/repo:Z,ro" \
   -v "$STAGE_DIR/.smoke-repo/local-smoke.repo:/etc/yum.repos.d/local-smoke.repo:Z,ro" \
@@ -46,34 +93,9 @@ podman run --name "$CONTAINER_NAME" --rm --cgroups=disabled \
   bash -lc "
     set -euo pipefail
     dnf -y makecache --disablerepo='*' --enablerepo=local-smoke,trilby-live
-    case '$PACKAGE' in
-      ghostty)
-        dnf -y install --disablerepo='*' --enablerepo=local-smoke,trilby-live ghostty
-        test -x /usr/bin/ghostty
-        test -f /usr/share/applications/com.mitchellh.ghostty.desktop
-        grep -q '^Exec=/usr/bin/ghostty' /usr/share/applications/com.mitchellh.ghostty.desktop
-        ;;
-      gtk4-layer-shell)
-        dnf -y install --disablerepo='*' --enablerepo=local-smoke,trilby-live gtk4-layer-shell gtk4-layer-shell-devel
-        test -e /usr/lib64/libgtk4-layer-shell.so.0
-        test -e /usr/lib64/pkgconfig/gtk4-layer-shell-0.pc
-        ;;
-      dae)
-        dnf -y install --disablerepo='*' --enablerepo=local-smoke,trilby-live dae
-        /usr/bin/dae --help >/dev/null
-        test -f /usr/lib/systemd/system/dae.service
-        ;;
-      daed)
-        dnf -y install --disablerepo='*' --enablerepo=local-smoke,trilby-live daed
-        /usr/bin/daed --help >/dev/null
-        test -f /usr/lib/systemd/system/daed.service
-        test -f /usr/share/applications/daed.desktop
-        ;;
-      *)
-        echo \"unsupported smoke-test package: $PACKAGE\" >&2
-        exit 1
-        ;;
-    esac
+    dnf -y install --disablerepo='*' --enablerepo=local-smoke,trilby-live ${INSTALL_ARGS}
+    ${FILE_CHECKS}
+    ${COMMAND_CHECKS}
   "
 
 python3 /opt/packager/scripts/packager.py import-rpms "$STAGE_DIR"/*.rpm
