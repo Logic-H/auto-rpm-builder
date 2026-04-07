@@ -264,7 +264,7 @@ def sign_rpm(rpm_path):
     run(
         [
             "rpmsign",
-            "--addsign",
+            "--resign",
             "--define",
             f"_gpg_name {GPG_KEY_NAME}",
             "--define",
