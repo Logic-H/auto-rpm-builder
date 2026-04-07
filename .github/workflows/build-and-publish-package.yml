@@ -87,6 +87,7 @@ jobs:
           INPUT_PACKAGE: ${{ github.event.inputs.package }}
           BEFORE_SHA: ${{ github.event.before }}
           CURRENT_SHA: ${{ github.sha }}
+          EVENT_PATH: ${{ github.event_path }}
         run: |
           chmod +x scripts/packager.py scripts/publish_remote.sh scripts/check_updates.py scripts/remote_smoke_publish.sh scripts/export_smoke_test.py scripts/validate_registry.py scripts/detect_changed_packages.py scripts/finalize_detect.py
           python3 scripts/validate_registry.py
@@ -96,7 +97,7 @@ jobs:
           if [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$INPUT_PACKAGE" ]]; then
             python3 scripts/finalize_detect.py manual "$INPUT_PACKAGE" >/tmp/final-detect.json
           elif [[ "$EVENT_NAME" == "push" && -n "$BEFORE_SHA" && "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
-            python3 scripts/detect_changed_packages.py "$BEFORE_SHA" "$CURRENT_SHA" > /tmp/git-detect.json
+            python3 scripts/detect_changed_packages.py "$EVENT_PATH" > /tmp/git-detect.json
             cat /tmp/git-detect.json
             python3 scripts/finalize_detect.py push /tmp/update-check.json /tmp/git-detect.json >/tmp/final-detect.json
           else

@@ -1,24 +1,11 @@
 #!/usr/bin/env python3
 import json
-import subprocess
 import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
 REGISTRY_DIR = ROOT / "registry" / "packages"
-
-
-def run(cmd):
-    return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout
-
-
-def changed_files_between(base_ref, head_ref):
-    try:
-        output = run(["git", "diff", "--name-only", base_ref, head_ref])
-    except subprocess.CalledProcessError:
-        output = run(["git", "show", "--pretty=", "--name-only", head_ref])
-    return [line.strip() for line in output.splitlines() if line.strip()]
 
 
 def enabled_packages():
@@ -45,12 +32,19 @@ def package_from_path(path_str):
 
 
 def main():
-    if len(sys.argv) != 3:
-        raise SystemExit("usage: detect_changed_packages.py <base-ref> <head-ref>")
+    if len(sys.argv) != 2:
+        raise SystemExit("usage: detect_changed_packages.py <event-json>")
 
-    base_ref = sys.argv[1]
-    head_ref = sys.argv[2]
-    changed_files = changed_files_between(base_ref, head_ref)
+    event_path = Path(sys.argv[1])
+    with event_path.open() as f:
+        event = json.load(f)
+
+    changed_files = []
+    for commit in event.get("commits", []):
+        changed_files.extend(commit.get("added", []))
+        changed_files.extend(commit.get("modified", []))
+        changed_files.extend(commit.get("removed", []))
+    changed_files = sorted(set(changed_files))
 
     all_enabled = enabled_packages()
     affected = set()
