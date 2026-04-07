@@ -31,6 +31,7 @@ jobs:
     steps:
       - name: Install base tooling
         run: |
+          dnf config-manager --set-enabled crb
           dnf -y install \
             git \
             python3 \
