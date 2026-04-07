@@ -6,5 +6,9 @@ After=network-online.target
 [Service]
 Type=oneshot
 EnvironmentFile=-/etc/auto-rpm-builder.env
+Environment=PACKAGER_REPO_DIR=/srv/repos/custom/el10/x86_64
+Environment=PACKAGER_GPG_HOME=/opt/packager/gnupg
+Environment="PACKAGER_GPG_KEY_NAME=Huazi EL10 Repo <repo@imhzj.com>"
+Environment=PACKAGER_GPG_PUBLIC_KEY_PATH=/srv/repos/custom/RPM-GPG-KEY-huazi-el10
 ExecStart=/usr/bin/python3 /opt/packager/scripts/process_queue.py
 WorkingDirectory=/opt/packager
