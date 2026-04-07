@@ -55,12 +55,18 @@ def main():
         state = packager.load_state(name)
         source_info = packager.fetch_latest_source(pkg)
         build_id = source_info.get("build_id", source_info["version"])
+        current_build_id = (
+            state.get("last_build_id")
+            or state.get("last_release_tag")
+            or state.get("last_build_version")
+            or ""
+        )
         current = {
             "name": name,
             "version": source_info["version"],
             "build_id": build_id,
-            "current_build_id": state.get("last_build_id", ""),
-            "changed": state.get("last_build_id") != build_id,
+            "current_build_id": current_build_id,
+            "changed": current_build_id != build_id,
         }
         packages.append(current)
 

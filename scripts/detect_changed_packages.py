@@ -13,6 +13,14 @@ def run(cmd):
     return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout
 
 
+def changed_files_between(base_ref, head_ref):
+    try:
+        output = run(["git", "diff", "--name-only", base_ref, head_ref])
+    except subprocess.CalledProcessError:
+        output = run(["git", "show", "--pretty=", "--name-only", head_ref])
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
 def enabled_packages():
     names = []
     for path in sorted(REGISTRY_DIR.glob("*.json")):
@@ -42,11 +50,7 @@ def main():
 
     base_ref = sys.argv[1]
     head_ref = sys.argv[2]
-    changed_files = [
-        line.strip()
-        for line in run(["git", "diff", "--name-only", base_ref, head_ref]).splitlines()
-        if line.strip()
-    ]
+    changed_files = changed_files_between(base_ref, head_ref)
 
     all_enabled = enabled_packages()
     affected = set()
