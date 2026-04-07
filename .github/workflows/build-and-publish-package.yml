@@ -36,6 +36,7 @@ jobs:
             git \
             python3 \
             dnf-plugins-core \
+            meson \
             rpm-build \
             rpm-sign \
             rpmdevtools \
