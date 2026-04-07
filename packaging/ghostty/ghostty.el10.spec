@@ -46,7 +46,8 @@ Requires:       %{name}%{?_isa} = %{version}-%{release}
 This package provides the development files for libghostty-vt.
 
 %prep
-%autosetup -q -n ghostty-%{version}
+%setup -q -n ghostty-%{version}
+%patch 0 -p0
 mkdir -p %{_builddir}/ghostty-offline-cache
 ZIG_GLOBAL_CACHE_DIR=%{_builddir}/ghostty-offline-cache ./nix/build-support/fetch-zig-cache.sh
 
