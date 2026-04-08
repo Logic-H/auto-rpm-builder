@@ -20,6 +20,7 @@
     "disable_check_rpaths": true
   },
   "test": {
+    "runner": "installroot",
     "install": [
       "easyconnect"
     ],
@@ -37,10 +38,10 @@
       "EasyMonitor.service"
     ],
     "commands": [
-      "test -e /usr/share/sangfor/EasyConnect/EasyConnect"
+      "test -e \"$SMOKE_ROOT/usr/share/sangfor/EasyConnect/EasyConnect\""
     ],
     "post_install_commands": [
-      "rpm -q easyconnect >/dev/null"
+      "rpm --root \"${INSTALLROOT}\" -q easyconnect >/dev/null"
     ]
   }
 }

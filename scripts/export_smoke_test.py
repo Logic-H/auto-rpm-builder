@@ -32,6 +32,7 @@ def main():
     payload = {
         "schema_version": pkg.get("schema_version", 1),
         "package": package,
+        "runner": test.get("runner") or "container",
         "install": install,
         "dnf_args": test.get("dnf_args") or [],
         "env": test.get("env") or {},
