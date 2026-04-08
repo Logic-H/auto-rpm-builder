@@ -17,7 +17,10 @@
     "summary": "EasyConnect for Linux",
     "description": "Sangfor EasyConnect for Linux rebuilt from the vendor DEB package.",
     "arch": "x86_64",
-    "disable_check_rpaths": true
+    "disable_check_rpaths": true,
+    "executable_paths": [
+      "/usr/share/sangfor/EasyConnect/EasyConnect"
+    ]
   },
   "test": {
     "runner": "installroot",

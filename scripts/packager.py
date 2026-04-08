@@ -503,6 +503,17 @@ def deb_data_member(asset_path):
     raise RuntimeError(f"no data.tar.* member found in {asset_path.name}")
 
 
+def apply_tree_permissions(stage_root, build):
+    for relpath in build.get("executable_paths", []):
+        target = stage_root / relpath.lstrip("/")
+        if not target.exists():
+            raise RuntimeError(f"executable path not found in staged tree: {target}")
+        if target.is_dir():
+            raise RuntimeError(f"executable path must be a file, got directory: {target}")
+        mode = stat.S_IMODE(os.lstat(target).st_mode)
+        os.chmod(target, mode | 0o755)
+
+
 def build_rpm_from_deb(pkg, source_info):
     asset_path = source_info["asset_path"]
     if asset_path.suffix != ".deb":
@@ -518,6 +529,7 @@ def build_rpm_from_deb(pkg, source_info):
         with archive_path.open("wb") as f:
             run(["ar", "p", str(asset_path), data_member], stdout=f)
         extract_tarball(archive_path, stage_root)
+        apply_tree_permissions(stage_root, pkg["build"])
 
         rpmbuild_root = temp / "rpmbuild"
         for subdir in ("BUILD", "BUILDROOT", "RPMS", "SOURCES", "SPECS", "SRPMS"):
