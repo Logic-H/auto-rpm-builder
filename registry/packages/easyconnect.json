@@ -12,7 +12,7 @@
   },
   "build": {
     "method": "rpm-from-deb",
-    "release": "1",
+    "release": "2",
     "license": "commercial",
     "summary": "EasyConnect for Linux",
     "description": "Sangfor EasyConnect for Linux rebuilt from the vendor DEB package.",
