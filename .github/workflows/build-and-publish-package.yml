@@ -164,7 +164,7 @@ jobs:
         env:
           CHANGED_NAMES: ${{ steps.detect.outputs.changed_names }}
           PACKAGER_WEBHOOK_SECRET: ${{ secrets.PACKAGER_WEBHOOK_SECRET }}
-          PACKAGER_WEBHOOK_URL: http://repo.imhzj.com/hooks/packager
+          PACKAGER_WEBHOOK_URL: https://repo.imhzj.com/hooks/packager
           ARTIFACT_NAME: rpms-el10-${{ github.run_id }}
         run: |
           test -n "$PACKAGER_WEBHOOK_SECRET"
@@ -192,11 +192,12 @@ jobs:
           secret = os.environ["PACKAGER_WEBHOOK_SECRET"].encode("utf-8")
           print("sha256=" + hmac.new(secret, body, hashlib.sha256).hexdigest())
           PY
-          curl -fsS -X POST \
+          status_code="$(curl -sS -o /tmp/webhook-response.json -w '%{http_code}' -X POST \
             -H "Content-Type: application/json" \
             -H "X-Hub-Signature-256: $(cat /tmp/webhook-signature.txt)" \
             --data-binary @/tmp/webhook-payload.json \
-            "$PACKAGER_WEBHOOK_URL"
+            "$PACKAGER_WEBHOOK_URL")"
+          test "$status_code" = "202"
 
       - name: No updates
         if: ${{ steps.detect.outputs.has_updates != 'true' }}
