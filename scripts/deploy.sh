@@ -17,6 +17,9 @@ sudo rsync -a --delete \
   /home/cloud-user/auto-rpm-builder/ /opt/packager/
 sudo chown -R root:root /opt/packager
 sudo chmod 755 /opt/packager/scripts/packager.py
+sudo chmod 755 /opt/packager/scripts/remote_smoke_publish.sh
+sudo chmod 755 /opt/packager/scripts/process_queue.py
+sudo chmod 755 /opt/packager/scripts/webhook_server.py
 sudo chmod 755 /opt/packager/scripts/register.py
 sudo chmod 755 /opt/packager/scripts/snapshot_ghostty.py
 sudo mkdir -p /srv/repos/custom/el10/x86_64/Packages
