@@ -365,6 +365,7 @@ def generate_spec(pkg, version, file_lines):
     preamble = ["%global debug_package %{nil}"]
     if build.get("disable_check_rpaths"):
         preamble.append("%global __brp_check_rpaths %{nil}")
+    preamble.extend(f"Requires:       {item}" for item in build.get("requires", []))
 
     spec = f"""{chr(10).join(preamble)}
 

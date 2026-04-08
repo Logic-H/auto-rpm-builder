@@ -18,6 +18,10 @@
     "description": "Sangfor EasyConnect for Linux rebuilt from the vendor DEB package.",
     "arch": "x86_64",
     "disable_check_rpaths": true,
+    "requires": [
+      "gtk2",
+      "dbus-glib"
+    ],
     "executable_paths": [
       "/usr/share/sangfor/EasyConnect/EasyConnect"
     ]
