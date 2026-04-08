@@ -98,7 +98,6 @@ if runner == "installroot":
     dnf_prefix = (
         'dnf -y --installroot "$SMOKE_ROOT" --releasever=/ '
         '--setopt=reposdir="$SMOKE_ROOT/etc/yum.repos.d" '
-        "--disablerepo='*' --enablerepo=local-smoke,trilby-live "
     )
 else:
     dnf_prefix = "dnf -y --disablerepo='*' --enablerepo=local-smoke,trilby-live "
@@ -134,6 +133,7 @@ if [[ "$SMOKE_RUNNER" == "container" ]]; then
 elif [[ "$SMOKE_RUNNER" == "installroot" ]]; then
   INSTALLROOT_DIR="$(mktemp -d /tmp/trilby-installroot-${PACKAGE}-XXXXXX)"
   mkdir -p "$INSTALLROOT_DIR/root/etc/yum.repos.d"
+  find /etc/yum.repos.d -maxdepth 1 -type f -name '*.repo' -exec cp -f {} "$INSTALLROOT_DIR/root/etc/yum.repos.d/" \;
   cat >"$INSTALLROOT_DIR/root/etc/yum.repos.d/local-smoke.repo" <<EOF
 [local-smoke]
 name=Local Smoke Repo
@@ -150,8 +150,7 @@ gpgcheck=0
 repo_gpgcheck=0
 EOF
   dnf -y --installroot "$INSTALLROOT_DIR/root" --releasever=/ \
-    --setopt=reposdir="$INSTALLROOT_DIR/root/etc/yum.repos.d" \
-    --disablerepo='*' --enablerepo=local-smoke,trilby-live makecache
+    --setopt=reposdir="$INSTALLROOT_DIR/root/etc/yum.repos.d" makecache
   INSTALLROOT="$INSTALLROOT_DIR/root" bash "$SMOKE_SCRIPT"
 else
   echo "unsupported smoke runner: $SMOKE_RUNNER" >&2
