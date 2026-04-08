@@ -24,9 +24,7 @@
     "install": [
       "easyconnect"
     ],
-    "dnf_args": [
-      "--setopt=tsflags=noscripts"
-    ],
+    "dnf_args": [],
     "env": {},
     "pre_install_commands": [],
     "files": [
